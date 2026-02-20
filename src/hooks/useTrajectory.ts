@@ -24,14 +24,18 @@ import {
   buildTrajectoryMetricsResult,
 } from '../lib/metrics/trajectoryMetrics';
 
+export type TrajectoryPhase = 'idle' | 'capturing' | 'computing';
+
 export interface UseTrajectoryState {
   /** Whether a trajectory run is currently in progress */
   isRunning: boolean;
+  /** Current phase: 'idle', 'capturing' (frames), or 'computing' (metrics) */
+  phase: TrajectoryPhase;
   /** Current frame index during a run */
   currentFrame: number;
   /** Total frames in the active trajectory */
   totalFrames: number;
-  /** Progress from 0 to 1 */
+  /** Progress from 0 to 1 (within current phase) */
   progress: number;
   /** Most recent trajectory metrics result (null before first run) */
   result: TrajectoryMetricsResult | null;
@@ -69,6 +73,7 @@ function waitForFrame(): Promise<void> {
 export function useTrajectory(): UseTrajectoryReturn {
   const [state, setState] = useState<UseTrajectoryState>({
     isRunning: false,
+    phase: 'idle',
     currentFrame: 0,
     totalFrames: 0,
     progress: 0,
@@ -92,6 +97,7 @@ export function useTrajectory(): UseTrajectoryReturn {
 
       setState({
         isRunning: true,
+        phase: 'capturing',
         currentFrame: 0,
         totalFrames: traj.keyframes.length,
         progress: 0,
@@ -140,7 +146,7 @@ export function useTrajectory(): UseTrajectoryReturn {
             framesB.push(captureFrame(referenceContext));
           }
 
-          // Update progress
+          // Update progress: frame-accurate tracking
           setState((prev) => ({
             ...prev,
             currentFrame: i + 1,
@@ -148,8 +154,26 @@ export function useTrajectory(): UseTrajectoryReturn {
           }));
         }
 
+        // Phase 2: Computing metrics
+        setState((prev) => ({
+          ...prev,
+          phase: 'computing',
+          progress: 0,
+        }));
+
+        // Yield to UI so the phase change renders before heavy computation
+        await new Promise((r) => setTimeout(r, 0));
+
         // Compute inter-frame SSIM on primary viewer (temporal consistency)
         const interFrameMetrics = computeInterFrameSSIM(framesA);
+
+        setState((prev) => ({
+          ...prev,
+          progress: 0.5,
+        }));
+
+        // Yield to UI again
+        await new Promise((r) => setTimeout(r, 0));
 
         // Compute per-frame metrics if we have a reference
         const tValues = traj.keyframes.map((kf) => kf.t);
@@ -184,6 +208,7 @@ export function useTrajectory(): UseTrajectoryReturn {
         setState((prev) => ({
           ...prev,
           isRunning: false,
+          phase: 'idle',
           progress: 1,
           result: metricsResult,
         }));
@@ -218,6 +243,7 @@ export function useTrajectory(): UseTrajectoryReturn {
     cancelledRef.current = true;
     setState({
       isRunning: false,
+      phase: 'idle',
       currentFrame: 0,
       totalFrames: 0,
       progress: 0,

@@ -67,9 +67,14 @@ function ConfigSlider({
   );
 }
 
-function ProgressBar({ progress, label }: { progress: number; label: string }) {
+function ProgressBar({ progress, label, phaseLabel }: { progress: number; label: string; phaseLabel?: string }) {
   return (
     <div className="mt-4">
+      {phaseLabel && (
+        <div className="text-xs mb-2 font-semibold uppercase tracking-wide" style={{ color: '#B39DFF' }}>
+          {phaseLabel}
+        </div>
+      )}
       <div className="flex justify-between text-xs mb-1">
         <span style={{ color: '#FFACBF' }}>{label}</span>
         <span className="font-mono" style={{ color: '#FDFDFB' }}>
@@ -79,7 +84,7 @@ function ProgressBar({ progress, label }: { progress: number; label: string }) {
       <div className="w-full h-2 rounded-full" style={{ backgroundColor: '#555' }}>
         <div
           className="h-2 rounded-full transition-all duration-150"
-          style={{ width: `${progress * 100}%`, backgroundColor: '#B39DFF' }}
+          style={{ width: `${Math.min(progress * 100, 100)}%`, backgroundColor: '#B39DFF' }}
         />
       </div>
     </div>
@@ -482,10 +487,18 @@ export function TrajectoryPanel({ contextA, contextB }: TrajectoryPanelProps) {
         </div>
 
         {/* Progress */}
-        {trajectory.isRunning && (
+        {trajectory.isRunning && trajectory.phase === 'capturing' && (
           <ProgressBar
             progress={trajectory.progress}
-            label={`Capturing frame ${trajectory.currentFrame} / ${trajectory.totalFrames}`}
+            label={`Frame ${trajectory.currentFrame} / ${trajectory.totalFrames}`}
+            phaseLabel="Phase 1: Capturing Frames"
+          />
+        )}
+        {trajectory.isRunning && trajectory.phase === 'computing' && (
+          <ProgressBar
+            progress={trajectory.progress}
+            label="Analyzing inter-frame metrics..."
+            phaseLabel="Phase 2: Computing Metrics"
           />
         )}
 
