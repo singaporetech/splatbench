@@ -1,19 +1,23 @@
 /**
- * TestPanel: Modular test runner UI.
+ * TestPanel: Modular test runner UI with Current Models and Batch sub-tabs.
  *
- * Displays all registered tests grouped by category with checkboxes,
- * Run Selected / Run All buttons, per-test status indicators, a
- * progress bar, individual test results, and a batch summary.
+ * - "Current Models" sub-tab: runs selected tests on the currently loaded
+ *   reference (left pane) and test (right pane) models. Clear per-test
+ *   progress with no confusing "batch" terminology.
  *
- * Replaces the old TrajectoryPanel with a generic, extensible design.
+ * - "Batch" sub-tab: folder-based batch testing. Select a folder containing
+ *   ref_<name>.<ext> and test_<name>.<ext> file pairs, preview detected
+ *   pairs, and run all tests on each pair sequentially.
  */
 
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { SparkViewerContext } from '../../types';
+import type { GSFile } from '../../types';
 import type { TestScene, TestStatus } from '../../lib/testing/types';
 import { getCategories } from '../../lib/testing/registry';
 import { useTestRunner } from '../../hooks/useTestRunner';
 import type { TestRunState } from '../../hooks/useTestRunner';
+import { BatchTestPanel } from './BatchTestPanel';
 
 // Ensure built-in tests are registered
 import '../../lib/testing/trajectoryTests';
@@ -22,7 +26,13 @@ import '../../lib/testing/staticQualityTest';
 interface TestPanelProps {
   contextA: SparkViewerContext | null;
   contextB: SparkViewerContext | null;
+  /** Callback to load a file into the reference (left) viewer, returns context */
+  onLoadRef?: (file: GSFile) => Promise<SparkViewerContext | null>;
+  /** Callback to load a file into the test (right) viewer, returns context */
+  onLoadTest?: (file: GSFile) => Promise<SparkViewerContext | null>;
 }
+
+type SubTab = 'current' | 'batch';
 
 // ─── Status Indicator ───────────────────────────────────────────────────────
 
@@ -99,9 +109,9 @@ function ProgressBar({
   );
 }
 
-// ─── Batch Progress ─────────────────────────────────────────────────────────
+// ─── Test Queue Progress ────────────────────────────────────────────────────
 
-function BatchProgress({
+function TestQueueProgress({
   completed,
   total,
 }: {
@@ -113,7 +123,9 @@ function BatchProgress({
   return (
     <div className="mb-4">
       <div className="flex justify-between text-xs mb-1">
-        <span style={{ color: '#FFACBF' }}>Batch Progress</span>
+        <span style={{ color: '#FFACBF' }}>
+          Test {completed}/{total}
+        </span>
         <span className="font-mono" style={{ color: '#FDFDFB' }}>
           {completed} / {total}
         </span>
@@ -226,9 +238,9 @@ function TestResultCard({ state, testName }: { state: TestRunState; testName: st
   );
 }
 
-// ─── Batch Summary ──────────────────────────────────────────────────────────
+// ─── Results Summary ────────────────────────────────────────────────────────
 
-function BatchSummary({
+function ResultsSummary({
   passed,
   failed,
   total,
@@ -254,7 +266,7 @@ function BatchSummary({
         className="text-xs uppercase tracking-wide mb-1"
         style={{ color: '#FFACBF' }}
       >
-        Batch Summary
+        Results Summary
       </div>
       <div
         className="text-lg font-semibold font-mono"
@@ -271,9 +283,15 @@ function BatchSummary({
   );
 }
 
-// ─── Main Component ─────────────────────────────────────────────────────────
+// ─── Current Models Sub-Panel ───────────────────────────────────────────────
 
-export function TestPanel({ contextA, contextB }: TestPanelProps) {
+function CurrentModelsPanel({
+  contextA,
+  contextB,
+}: {
+  contextA: SparkViewerContext | null;
+  contextB: SparkViewerContext | null;
+}) {
   const runner = useTestRunner();
   const categories = useMemo(() => getCategories(), []);
 
@@ -304,8 +322,278 @@ export function TestPanel({ contextA, contextB }: TestPanelProps) {
   }, [runner.tests]);
 
   const hasResults = runner.results.length > 0;
-  const showBatchProgress =
-    runner.isRunning && runner.totalInBatch > 1;
+  const showQueueProgress = runner.isRunning && runner.totalInBatch > 1;
+
+  return (
+    <div>
+      {/* Explanation */}
+      <p className="text-xs mb-3" style={{ color: '#888' }}>
+        Run tests on the <span style={{ color: '#B39DFF' }}>reference model</span> (left pane)
+        and <span style={{ color: '#FFACBF' }}>test model</span> (right pane) currently loaded
+        in the viewer.
+      </p>
+      <div
+        className="flex items-center gap-3 text-xs mb-5 px-3 py-2 rounded-lg"
+        style={{ backgroundColor: 'rgba(179, 157, 255, 0.08)', border: '1px solid #44444480' }}
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#B39DFF' }} />
+          <span style={{ color: '#B39DFF' }}>Reference</span>
+          <span style={{ color: '#666' }}>(left)</span>
+        </div>
+        <span style={{ color: '#555' }}>vs</span>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#FFACBF' }} />
+          <span style={{ color: '#FFACBF' }}>Test</span>
+          <span style={{ color: '#666' }}>(right)</span>
+        </div>
+      </div>
+
+      {/* Selection controls */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-2">
+          <button
+            onClick={runner.selectAll}
+            disabled={runner.isRunning}
+            className="text-xs px-2 py-1 rounded transition-colors"
+            style={{
+              backgroundColor: '#555',
+              color: '#FDFDFB',
+              cursor: runner.isRunning ? 'not-allowed' : 'pointer',
+              opacity: runner.isRunning ? 0.5 : 1,
+            }}
+          >
+            All
+          </button>
+          <button
+            onClick={runner.deselectAll}
+            disabled={runner.isRunning}
+            className="text-xs px-2 py-1 rounded transition-colors"
+            style={{
+              backgroundColor: '#555',
+              color: '#FDFDFB',
+              cursor: runner.isRunning ? 'not-allowed' : 'pointer',
+              opacity: runner.isRunning ? 0.5 : 1,
+            }}
+          >
+            None
+          </button>
+        </div>
+        <span className="text-xs" style={{ color: '#888' }}>
+          {runner.selectedIds.size} / {runner.tests.length} selected
+        </span>
+      </div>
+
+      {/* Test list grouped by category */}
+      <div className="mb-5 space-y-4">
+        {categories.map((cat) => {
+          const testsInCat = grouped.get(cat) || [];
+          return (
+            <div key={cat}>
+              <div
+                className="text-xs font-semibold uppercase tracking-wide mb-2"
+                style={{ color: '#FFACBF' }}
+              >
+                {cat}
+              </div>
+              <div className="space-y-1">
+                {testsInCat.map((test) => {
+                  const state = runner.testStates.get(test.id);
+                  const status: TestStatus = state?.status ?? 'idle';
+                  const isSelected = runner.selectedIds.has(test.id);
+
+                  return (
+                    <label
+                      key={test.id}
+                      className="flex items-start gap-2 py-2 px-2 rounded cursor-pointer transition-colors"
+                      style={{
+                        backgroundColor:
+                          runner.activeTestId === test.id
+                            ? 'rgba(179, 157, 255, 0.1)'
+                            : 'transparent',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => runner.toggleTest(test.id)}
+                        disabled={runner.isRunning}
+                        className="mt-0.5 rounded flex-shrink-0"
+                        style={{ accentColor: '#B39DFF' }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <StatusDot status={status} />
+                          <span
+                            className="text-sm font-semibold"
+                            style={{ color: '#FDFDFB' }}
+                          >
+                            {test.name}
+                          </span>
+                        </div>
+                        <div
+                          className="text-xs mt-0.5 leading-snug"
+                          style={{ color: '#888' }}
+                        >
+                          {test.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Run / Cancel buttons */}
+      <div className="flex gap-2 mb-4">
+        {runner.isRunning ? (
+          <button
+            onClick={runner.cancel}
+            className="flex-1 py-3 text-sm font-semibold rounded-lg transition-colors"
+            style={{ backgroundColor: '#FF575F', color: '#FDFDFB' }}
+          >
+            Cancel
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={handleRunSelected}
+              disabled={!canRun}
+              className="flex-1 py-3 text-sm font-semibold rounded-lg transition-colors"
+              style={{
+                backgroundColor: canRun ? '#B39DFF' : '#555',
+                color: canRun ? '#1F1F1F' : '#888',
+                cursor: canRun ? 'pointer' : 'not-allowed',
+              }}
+            >
+              Run on Current Models
+            </button>
+            <button
+              onClick={handleRunAll}
+              disabled={!scene || runner.isRunning}
+              className="py-3 px-4 text-sm font-semibold rounded-lg transition-colors"
+              style={{
+                backgroundColor:
+                  scene && !runner.isRunning ? '#555' : '#444',
+                color: scene && !runner.isRunning ? '#FDFDFB' : '#666',
+                cursor:
+                  scene && !runner.isRunning ? 'pointer' : 'not-allowed',
+              }}
+            >
+              All
+            </button>
+          </>
+        )}
+      </div>
+
+      {!contextA && (
+        <div className="text-xs mb-4 text-center" style={{ color: '#888' }}>
+          Load a reference model (left pane) to run tests
+        </div>
+      )}
+      {contextA && !contextB && (
+        <div className="text-xs mb-4 text-center" style={{ color: '#888' }}>
+          Load a test model (right pane) for quality comparison
+        </div>
+      )}
+
+      {/* Test queue progress (when running multiple selected tests) */}
+      {showQueueProgress && (
+        <TestQueueProgress
+          completed={runner.completedCount}
+          total={runner.totalInBatch}
+        />
+      )}
+
+      {/* Active test progress */}
+      {runner.activeTestId &&
+        (() => {
+          const state = runner.testStates.get(runner.activeTestId);
+          if (!state?.progress) return null;
+          return (
+            <ProgressBar
+              fraction={state.progress.fraction}
+              message={state.progress.message}
+              phase={state.progress.phase}
+            />
+          );
+        })()}
+
+      {/* Error for active test */}
+      {runner.activeTestId &&
+        (() => {
+          const state = runner.testStates.get(runner.activeTestId);
+          if (!state?.error) return null;
+          return (
+            <div
+              className="mt-3 p-3 rounded-lg text-xs"
+              style={{
+                backgroundColor: 'rgba(255, 87, 95, 0.15)',
+                border: '1px solid #FF575F',
+                color: '#FF575F',
+              }}
+            >
+              {state.error}
+            </div>
+          );
+        })()}
+
+      {/* Results */}
+      {hasResults && !runner.isRunning && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <div
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: '#FFACBF' }}
+            >
+              Results
+            </div>
+            <button
+              onClick={runner.reset}
+              className="text-xs px-2 py-1 rounded transition-colors"
+              style={{ backgroundColor: '#555', color: '#FDFDFB' }}
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* Results summary */}
+          <ResultsSummary
+            passed={runner.summary.passed}
+            failed={runner.summary.failed}
+            total={runner.summary.total}
+          />
+
+          {/* Individual results */}
+          {runner.tests.map((test) => {
+            const state = runner.testStates.get(test.id);
+            if (!state || !state.result) return null;
+            return (
+              <TestResultCard
+                key={test.id}
+                state={state}
+                testName={test.name}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────
+
+export function TestPanel({ contextA, contextB, onLoadRef, onLoadTest }: TestPanelProps) {
+  const [subTab, setSubTab] = useState<SubTab>('current');
+
+  // Default no-op loaders if not provided by parent
+  const defaultLoader = async () => null;
+  const loadRef = onLoadRef ?? defaultLoader;
+  const loadTest = onLoadTest ?? defaultLoader;
 
   return (
     <div
@@ -326,262 +614,50 @@ export function TestPanel({ contextA, contextB }: TestPanelProps) {
 
       <div className="px-6 py-6">
         {/* Header */}
-        <h2 className="text-xl mb-1" style={{ color: '#B39DFF' }}>
+        <h2 className="text-xl mb-4" style={{ color: '#B39DFF' }}>
           Tests
         </h2>
-        <p className="text-xs mb-3" style={{ color: '#888' }}>
-          Each test evaluates the <span style={{ color: '#FFACBF' }}>test model</span> (right pane)
-          against the <span style={{ color: '#B39DFF' }}>reference model</span> (left pane) by
-          capturing frames along a trajectory and computing quality metrics.
-        </p>
+
+        {/* Sub-tab navigation */}
         <div
-          className="flex items-center gap-3 text-xs mb-5 px-3 py-2 rounded-lg"
-          style={{ backgroundColor: 'rgba(179, 157, 255, 0.08)', border: '1px solid #44444480' }}
+          className="flex mb-5 rounded-lg overflow-hidden"
+          style={{ border: '1px solid #555' }}
         >
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#B39DFF' }} />
-            <span style={{ color: '#B39DFF' }}>Reference</span>
-            <span style={{ color: '#666' }}>(left)</span>
-          </div>
-          <span style={{ color: '#555' }}>vs</span>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#FFACBF' }} />
-            <span style={{ color: '#FFACBF' }}>Test</span>
-            <span style={{ color: '#666' }}>(right)</span>
-          </div>
+          <button
+            onClick={() => setSubTab('current')}
+            className="flex-1 py-2.5 text-xs font-semibold transition-colors"
+            style={{
+              backgroundColor: subTab === 'current' ? '#B39DFF' : 'transparent',
+              color: subTab === 'current' ? '#1F1F1F' : '#888',
+            }}
+          >
+            Current Models
+          </button>
+          <button
+            onClick={() => setSubTab('batch')}
+            className="flex-1 py-2.5 text-xs font-semibold transition-colors"
+            style={{
+              backgroundColor: subTab === 'batch' ? '#BEFF74' : 'transparent',
+              color: subTab === 'batch' ? '#1F1F1F' : '#888',
+              borderLeft: '1px solid #555',
+            }}
+          >
+            Batch
+          </button>
         </div>
 
-        {/* Selection controls */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex gap-2">
-            <button
-              onClick={runner.selectAll}
-              disabled={runner.isRunning}
-              className="text-xs px-2 py-1 rounded transition-colors"
-              style={{
-                backgroundColor: '#555',
-                color: '#FDFDFB',
-                cursor: runner.isRunning ? 'not-allowed' : 'pointer',
-                opacity: runner.isRunning ? 0.5 : 1,
-              }}
-            >
-              All
-            </button>
-            <button
-              onClick={runner.deselectAll}
-              disabled={runner.isRunning}
-              className="text-xs px-2 py-1 rounded transition-colors"
-              style={{
-                backgroundColor: '#555',
-                color: '#FDFDFB',
-                cursor: runner.isRunning ? 'not-allowed' : 'pointer',
-                opacity: runner.isRunning ? 0.5 : 1,
-              }}
-            >
-              None
-            </button>
-          </div>
-          <span className="text-xs" style={{ color: '#888' }}>
-            {runner.selectedIds.size} / {runner.tests.length} selected
-          </span>
-        </div>
-
-        {/* Test list grouped by category */}
-        <div className="mb-5 space-y-4">
-          {categories.map((cat) => {
-            const testsInCat = grouped.get(cat) || [];
-            return (
-              <div key={cat}>
-                <div
-                  className="text-xs font-semibold uppercase tracking-wide mb-2"
-                  style={{ color: '#FFACBF' }}
-                >
-                  {cat}
-                </div>
-                <div className="space-y-1">
-                  {testsInCat.map((test) => {
-                    const state = runner.testStates.get(test.id);
-                    const status: TestStatus = state?.status ?? 'idle';
-                    const isSelected = runner.selectedIds.has(test.id);
-
-                    return (
-                      <label
-                        key={test.id}
-                        className="flex items-start gap-2 py-2 px-2 rounded cursor-pointer transition-colors"
-                        style={{
-                          backgroundColor:
-                            runner.activeTestId === test.id
-                              ? 'rgba(179, 157, 255, 0.1)'
-                              : 'transparent',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => runner.toggleTest(test.id)}
-                          disabled={runner.isRunning}
-                          className="mt-0.5 rounded flex-shrink-0"
-                          style={{ accentColor: '#B39DFF' }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <StatusDot status={status} />
-                            <span
-                              className="text-sm font-semibold"
-                              style={{ color: '#FDFDFB' }}
-                            >
-                              {test.name}
-                            </span>
-                          </div>
-                          <div
-                            className="text-xs mt-0.5 leading-snug"
-                            style={{ color: '#888' }}
-                          >
-                            {test.description}
-                          </div>
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Run / Cancel buttons */}
-        <div className="flex gap-2 mb-4">
-          {runner.isRunning ? (
-            <button
-              onClick={runner.cancel}
-              className="flex-1 py-3 text-sm font-semibold rounded-lg transition-colors"
-              style={{ backgroundColor: '#FF575F', color: '#FDFDFB' }}
-            >
-              Cancel
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={handleRunSelected}
-                disabled={!canRun}
-                className="flex-1 py-3 text-sm font-semibold rounded-lg transition-colors"
-                style={{
-                  backgroundColor: canRun ? '#B39DFF' : '#555',
-                  color: canRun ? '#1F1F1F' : '#888',
-                  cursor: canRun ? 'pointer' : 'not-allowed',
-                }}
-              >
-                Run Selected
-              </button>
-              <button
-                onClick={handleRunAll}
-                disabled={!scene || runner.isRunning}
-                className="py-3 px-4 text-sm font-semibold rounded-lg transition-colors"
-                style={{
-                  backgroundColor:
-                    scene && !runner.isRunning ? '#555' : '#444',
-                  color: scene && !runner.isRunning ? '#FDFDFB' : '#666',
-                  cursor:
-                    scene && !runner.isRunning ? 'pointer' : 'not-allowed',
-                }}
-              >
-                Run All
-              </button>
-            </>
-          )}
-        </div>
-
-        {!contextA && (
-          <div className="text-xs mb-4 text-center" style={{ color: '#888' }}>
-            Load a reference model (left pane) to run tests
-          </div>
-        )}
-        {contextA && !contextB && (
-          <div className="text-xs mb-4 text-center" style={{ color: '#888' }}>
-            Load a test model (right pane) for quality comparison
-          </div>
+        {/* Sub-tab content */}
+        {subTab === 'current' && (
+          <CurrentModelsPanel contextA={contextA} contextB={contextB} />
         )}
 
-        {/* Batch progress */}
-        {showBatchProgress && (
-          <BatchProgress
-            completed={runner.completedCount}
-            total={runner.totalInBatch}
+        {subTab === 'batch' && (
+          <BatchTestPanel
+            contextA={contextA}
+            contextB={contextB}
+            onLoadRef={loadRef}
+            onLoadTest={loadTest}
           />
-        )}
-
-        {/* Active test progress */}
-        {runner.activeTestId &&
-          (() => {
-            const state = runner.testStates.get(runner.activeTestId);
-            if (!state?.progress) return null;
-            return (
-              <ProgressBar
-                fraction={state.progress.fraction}
-                message={state.progress.message}
-                phase={state.progress.phase}
-              />
-            );
-          })()}
-
-        {/* Error for active test */}
-        {runner.activeTestId &&
-          (() => {
-            const state = runner.testStates.get(runner.activeTestId);
-            if (!state?.error) return null;
-            return (
-              <div
-                className="mt-3 p-3 rounded-lg text-xs"
-                style={{
-                  backgroundColor: 'rgba(255, 87, 95, 0.15)',
-                  border: '1px solid #FF575F',
-                  color: '#FF575F',
-                }}
-              >
-                {state.error}
-              </div>
-            );
-          })()}
-
-        {/* Results */}
-        {hasResults && !runner.isRunning && (
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: '#FFACBF' }}
-              >
-                Results
-              </div>
-              <button
-                onClick={runner.reset}
-                className="text-xs px-2 py-1 rounded transition-colors"
-                style={{ backgroundColor: '#555', color: '#FDFDFB' }}
-              >
-                Clear
-              </button>
-            </div>
-
-            {/* Batch summary */}
-            <BatchSummary
-              passed={runner.summary.passed}
-              failed={runner.summary.failed}
-              total={runner.summary.total}
-            />
-
-            {/* Individual results */}
-            {runner.tests.map((test) => {
-              const state = runner.testStates.get(test.id);
-              if (!state || !state.result) return null;
-              return (
-                <TestResultCard
-                  key={test.id}
-                  state={state}
-                  testName={test.name}
-                />
-              );
-            })}
-          </div>
         )}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { GSFile, SparkViewerContext } from '../../types';
 import { FileDropzone } from '../FileLoader/FileDropzone';
 import { GSViewer } from '../Viewer/GSViewer';
@@ -195,13 +195,71 @@ export function AppLayout() {
     }
   }, [fileA, fileB, contextA, contextB, imageQuality.isComparing, imageQuality.metrics.psnr]);
 
+  // Refs for resolving batch-load promises when viewer context becomes ready
+  const contextResolverA = useRef<((ctx: SparkViewerContext) => void) | null>(null);
+  const contextResolverB = useRef<((ctx: SparkViewerContext) => void) | null>(null);
+
   const handleContextReadyA = useCallback((context: SparkViewerContext) => {
     setContextA(context);
+    // Resolve any pending batch-load promise
+    if (contextResolverA.current) {
+      contextResolverA.current(context);
+      contextResolverA.current = null;
+    }
   }, []);
 
   const handleContextReadyB = useCallback((context: SparkViewerContext) => {
     setContextB(context);
+    // Resolve any pending batch-load promise
+    if (contextResolverB.current) {
+      contextResolverB.current(context);
+      contextResolverB.current = null;
+    }
   }, []);
+
+  /**
+   * Load a file into the reference (A / left) viewer and return the
+   * SparkViewerContext once the viewer is ready.  Used by BatchTestPanel
+   * to programmatically load file pairs.
+   */
+  const handleBatchLoadRef = useCallback(
+    (file: GSFile): Promise<SparkViewerContext | null> => {
+      return new Promise<SparkViewerContext | null>((resolve) => {
+        // Clear stale state
+        metricsA.reset();
+        imageQuality.reset();
+        setContextA(null);
+
+        // Register resolver — will be called by handleContextReadyA
+        contextResolverA.current = resolve;
+
+        // Trigger the viewer to load the new file
+        setFileA(file);
+        console.log(`[Batch] Loading ref: ${file.name}`);
+      });
+    },
+    [metricsA, imageQuality],
+  );
+
+  /**
+   * Load a file into the test (B / right) viewer and return the
+   * SparkViewerContext once the viewer is ready.
+   */
+  const handleBatchLoadTest = useCallback(
+    (file: GSFile): Promise<SparkViewerContext | null> => {
+      return new Promise<SparkViewerContext | null>((resolve) => {
+        metricsB.reset();
+        imageQuality.reset();
+        setContextB(null);
+
+        contextResolverB.current = resolve;
+
+        setFileB(file);
+        console.log(`[Batch] Loading test: ${file.name}`);
+      });
+    },
+    [metricsB, imageQuality],
+  );
 
   const handleLoadCompleteA = (loadTime: number, splatCount: number) => {
     console.log('handleLoadCompleteA:', { loadTime, splatCount, fileSize: fileA?.size });
@@ -581,6 +639,8 @@ export function AppLayout() {
               <TestPanel
                 contextA={contextA}
                 contextB={contextB}
+                onLoadRef={handleBatchLoadRef}
+                onLoadTest={handleBatchLoadTest}
               />
             )}
           </div>
