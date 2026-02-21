@@ -24,5 +24,6 @@ export {
   clearRegistry,
 } from './registry';
 
-// Importing trajectoryTests triggers auto-registration
+// Importing test modules triggers auto-registration
 export { orbitTest, dollyTest, panTest } from './trajectoryTests';
+export { staticQualityTest } from './staticQualityTest';

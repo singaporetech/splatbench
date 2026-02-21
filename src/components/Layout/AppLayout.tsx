@@ -5,14 +5,12 @@ import { GSViewer } from '../Viewer/GSViewer';
 import { CameraDistance } from '../Viewer/CameraDistance';
 import { MetricsPanel } from '../Metrics/MetricsPanel';
 import { CameraPresetPanel } from '../Camera/CameraPresetPanel';
-import { BatchTestPanel } from '../Batch/BatchTestPanel';
-import { SingleTestPanel } from '../Batch/SingleTestPanel';
-import { ExportPanel } from '../Export/ExportPanel';
 import { useMetrics } from '../../hooks/useMetrics';
 import { useImageQuality } from '../../hooks/useImageQuality';
 import { useCameraSync } from '../../hooks/useCameraSync';
 import { getScenePresets } from '../../lib/camera/cameraPresets';
 import { captureComparisonScreenshot, generateComparisonFilename, downloadScreenshot } from '../../lib/export/screenshot';
+import { createExportRecord, exportAndDownload } from '../../lib/export/csvExport';
 import { TestPanel } from '../Testing/TestPanel';
 
 // Scene detection from filename
@@ -41,7 +39,7 @@ export function AppLayout() {
   const [contextA, setContextA] = useState<SparkViewerContext | null>(null);
   const [contextB, setContextB] = useState<SparkViewerContext | null>(null);
   const [cameraSyncEnabled] = useState(true);
-  const [activeTab, setActiveTab] = useState<'metrics' | 'single' | 'batch' | 'export' | 'tests'>('metrics');
+  const [activeTab, setActiveTab] = useState<'metrics' | 'tests'>('metrics');
   const [showCameraPresets, setShowCameraPresets] = useState(true);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
@@ -88,6 +86,29 @@ export function AppLayout() {
     }
   }, [contextA, contextB, currentScene]);
 
+  // CSV export handler
+  const handleExportCSV = useCallback(() => {
+    if (!contextA || !contextB) {
+      console.warn('[Export] Load both splats first');
+      return;
+    }
+    
+    const cameraPos = contextA.camera.position;
+    const record = createExportRecord(
+      currentScene,
+      fileA?.format.replace('.', '') || 'unknown',
+      fileB?.format.replace('.', '') || 'unknown',
+      'current',
+      cameraPos.length(),
+      { x: cameraPos.x, y: cameraPos.y, z: cameraPos.z },
+      metricsA.metrics,
+      metricsB.metrics,
+      imageQuality.metrics,
+    );
+    exportAndDownload(record);
+    console.log('[Export] CSV downloaded for', currentScene);
+  }, [contextA, contextB, currentScene, fileA, fileB, metricsA.metrics, metricsB.metrics, imageQuality.metrics]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -115,16 +136,10 @@ export function AppLayout() {
         return;
       }
       
-      // 'E' for CSV export
+      // 'E' for CSV export (direct download)
       if (e.key === 'e' || e.key === 'E') {
         console.log('[Keyboard] Export CSV');
-        setActiveTab('export');
-        return;
-      }
-      
-      // 'B' for batch testing
-      if (e.key === 'b' || e.key === 'B') {
-        setActiveTab('batch');
+        handleExportCSV();
         return;
       }
       
@@ -149,7 +164,7 @@ export function AppLayout() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [contextA, currentScene, handleCaptureScreenshot]);
+  }, [contextA, currentScene, handleCaptureScreenshot, handleExportCSV]);
 
   const handleFileSelectA = (file: GSFile) => {
     metricsA.reset();
@@ -325,8 +340,8 @@ export function AppLayout() {
           <div className="text-xs text-gray-400 hidden lg:block">
             <span className="mr-2">1-5: Viewpoints</span>
             <span className="mr-2">C: Capture</span>
-            <span className="mr-2">E: Export</span>
-            <span className="mr-2">B: Batch</span>
+            <span className="mr-2">E: CSV Export</span>
+            <span className="mr-2">M: Metrics</span>
             <span>T: Tests</span>
           </div>
           {(fileA || fileB) && (
@@ -502,6 +517,23 @@ export function AppLayout() {
                   </svg>
                   {isCapturingScreenshot ? 'Capturing...' : 'Screenshot'}
                 </button>
+                <button
+                  onClick={handleExportCSV}
+                  disabled={!contextA || !contextB}
+                  className="px-4 py-3 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  style={{ 
+                    backgroundColor: '#FFACBF', 
+                    fontFamily: 'Arvo, serif' 
+                  }}
+                  title="Export metrics to CSV (E)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  CSV
+                </button>
               </div>
             </div>
           )}
@@ -511,7 +543,7 @@ export function AppLayout() {
         <div className="w-80 flex flex-col" style={{ borderLeft: '1px solid #444' }}>
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-600" style={{ backgroundColor: '#3E3E3E' }}>
-            {(['metrics', 'single', 'batch', 'export', 'tests'] as const).map((tab) => (
+            {(['metrics', 'tests'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -526,9 +558,6 @@ export function AppLayout() {
                 }}
               >
                 {tab === 'metrics' && 'Metrics'}
-                {tab === 'single' && 'Single'}
-                {tab === 'batch' && 'Batch'}
-                {tab === 'export' && 'Export'}
                 {tab === 'tests' && 'Tests'}
               </button>
             ))}
@@ -545,105 +574,6 @@ export function AppLayout() {
                 onCompareQuality={handleManualCompareQuality}
                 isComparingQuality={imageQuality.isComparing}
               />
-            )}
-
-            {activeTab === 'single' && (
-              <div className="p-4">
-                <SingleTestPanel
-                  availableScenes={['bonsai']}
-                  availableFormats={['splat', 'ksplat', 'spz']}
-                  onLoadFile={(file, side) => {
-                    if (side === 'B') {
-                      handleFileSelectB(file);
-                    } else {
-                      handleFileSelectA(file);
-                    }
-                  }}
-                  onGetContext={(side) => side === 'A' ? contextA : contextB}
-                  onGetMetrics={(side) => {
-                    const m = side === 'A' ? metricsA.getCurrentMetrics() : metricsB.getCurrentMetrics();
-                    return {
-                      fps: m.fps,
-                      loadTime: m.loadTime,
-                      memoryMB: m.memoryUsage,
-                      splatCount: m.splatCount,
-                      resolution: { width: m.resolution[0], height: m.resolution[1] }
-                    };
-                  }}
-                  onCaptureScreenshot={async (side) => {
-                    const ctx = side === 'A' ? contextA : contextB;
-                    if (!ctx) return null;
-                    // Use the viewer's canvas to capture screenshot
-                    const canvas = ctx.renderer.domElement;
-                    return canvas.toDataURL('image/png');
-                  }}
-                  onCompareQuality={async () => {
-                    if (contextA && contextB) {
-                      // compareQuality now returns the metrics directly
-                      const result = await imageQuality.compareQuality(contextA, contextB);
-                      return result;
-                    }
-                    return { psnr: null, ssim: null };
-                  }}
-                />
-              </div>
-            )}
-
-            {activeTab === 'batch' && (
-              <div className="p-4">
-                <BatchTestPanel
-                  availableScenes={['bonsai']}
-                  onStartBatch={(config) => console.log('[Batch] Starting:', config)}
-                  onLoadFile={(file, side) => {
-                    if (side === 'B') {
-                      handleFileSelectB(file);
-                    } else {
-                      handleFileSelectA(file);
-                    }
-                  }}
-                  onGetContext={(side) => side === 'A' ? contextA : contextB}
-                  onGetMetrics={(side) => {
-                    const m = side === 'A' ? metricsA.getCurrentMetrics() : metricsB.getCurrentMetrics();
-                    return {
-                      fps: m.fps,
-                      loadTime: m.loadTime,
-                      memoryMB: m.memoryUsage,
-                      splatCount: m.splatCount,
-                      resolution: { width: m.resolution[0], height: m.resolution[1] }
-                    };
-                  }}
-                  onCaptureScreenshot={async (side) => {
-                    const ctx = side === 'A' ? contextA : contextB;
-                    if (!ctx) return null;
-                    const canvas = ctx.renderer.domElement;
-                    return canvas.toDataURL('image/png');
-                  }}
-                  onCompareQuality={async () => {
-                    if (contextA && contextB) {
-                      const result = await imageQuality.compareQuality(contextA, contextB);
-                      return result;
-                    }
-                    return { psnr: null, ssim: null };
-                  }}
-                />
-              </div>
-            )}
-            
-            {activeTab === 'export' && (
-              <div className="p-4">
-                <ExportPanel
-                  sceneName={currentScene}
-                  formatA={fileA?.format.replace('.', '')}
-                  formatB={fileB?.format.replace('.', '')}
-                  viewpointName="current"
-                  cameraDistance={contextA?.camera.position.length()}
-                  metricsA={metricsA.metrics}
-                  metricsB={metricsB.metrics}
-                  qualityMetrics={imageQuality.metrics}
-                  contextA={contextA}
-                  contextB={contextB}
-                />
-              </div>
             )}
 
             {activeTab === 'tests' && (

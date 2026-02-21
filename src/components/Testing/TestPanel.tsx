@@ -17,6 +17,7 @@ import type { TestRunState } from '../../hooks/useTestRunner';
 
 // Ensure built-in tests are registered
 import '../../lib/testing/trajectoryTests';
+import '../../lib/testing/staticQualityTest';
 
 interface TestPanelProps {
   contextA: SparkViewerContext | null;

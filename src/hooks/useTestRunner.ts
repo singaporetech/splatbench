@@ -15,6 +15,7 @@ import type { Test, TestResult, TestScene, TestProgress, TestStatus } from '../l
 import { getTests } from '../lib/testing/registry';
 // Ensure all built-in tests are registered
 import '../lib/testing/trajectoryTests';
+import '../lib/testing/staticQualityTest';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

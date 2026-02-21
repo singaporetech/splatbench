@@ -143,6 +143,7 @@ Registry (discovers tests) --> useTestRunner (manages execution) --> TestPanel (
 | `trajectory-orbit` | Trajectory | Temporal consistency during orbital camera sweep |
 | `trajectory-dolly` | Trajectory | Temporal consistency during zoom in/out |
 | `trajectory-pan` | Trajectory | Temporal consistency during lateral camera pan |
+| `static-quality` | Quality | PSNR/SSIM at current camera position (requires reference viewer) |
 
 All trajectory tests compute inter-frame SSIM (mean, std dev, min) and optionally per-frame PSNR/SSIM against a reference viewer.
 
