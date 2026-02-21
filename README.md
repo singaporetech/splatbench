@@ -154,6 +154,36 @@ Typical performance on modern hardware (M1/M2 Mac, RTX 3060+):
 
 ## 🧪 Testing
 
+### Running Tests
+
+```bash
+npm test              # Run all tests once
+npm run test:watch    # Run tests in watch mode (re-run on file changes)
+npm run test:coverage # Run tests with coverage report
+```
+
+Tests use [Vitest](https://vitest.dev/) and run entirely in Node (no browser required).
+
+### Test Categories
+
+| Category | File | What it covers |
+|----------|------|----------------|
+| **Image Quality** | `src/lib/metrics/imageQuality.test.ts` | PSNR accuracy, SSIM correctness, edge cases (identical, black/white, gradient images), metric symmetry, monotonic degradation |
+| **Trajectory Metrics** | `src/lib/metrics/trajectoryMetrics.test.ts` | Inter-frame SSIM computation, per-frame metric aggregation, `buildTrajectoryMetricsResult` pipeline, data integrity (frames captured = frames processed), determinism |
+| **Camera Trajectories** | `src/lib/camera/trajectories.test.ts` | Orbit/dolly/pan keyframe generation, geometric correctness (constant distance, 360-degree return), t-value monotonicity, dispatcher routing, MetricsCollector FPS/frame-time/percentile accuracy |
+
+### Adding New Tests
+
+1. Create a `.test.ts` file next to the module you want to test (co-located pattern).
+2. Import from `vitest`: `import { describe, it, expect } from 'vitest'`.
+3. Use the helper functions in existing test files (e.g., `createImageData`, `generateFrameSequence`) for constructing synthetic test data.
+4. Run `npm test` to verify.
+
+**Guidelines:**
+- Tests must be deterministic (no random data without fixed seeds).
+- Prefer exact numeric assertions (`toBeCloseTo`, `toBe`) over loose checks.
+- For metric tests, validate against known mathematical results, not empirical "looks right" values.
+
 ### Manual Testing Checklist
 
 1. **File Loading**
