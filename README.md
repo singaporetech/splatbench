@@ -109,6 +109,103 @@ If you use SplatBench in your research, please cite:
 
 ---
 
+## Modular Test Architecture
+
+SplatBench uses a modular test system that makes it easy to add new benchmarks. Every evaluation (trajectory tests, quality comparisons, stress tests) is a **Test** registered in a central registry and automatically discovered by the UI.
+
+### Core Concepts
+
+| Concept | File | Description |
+|---------|------|-------------|
+| `Test` interface | `src/lib/testing/types.ts` | Contract every benchmark implements: `id`, `name`, `description`, `category`, and a `run()` method |
+| `TestResult` | `src/lib/testing/types.ts` | Standardized output: metrics map, structured metric entries, pass/fail, summary, duration |
+| `TestScene` | `src/lib/testing/types.ts` | Runtime context passed to tests: primary viewer + optional reference viewer |
+| Registry | `src/lib/testing/registry.ts` | `registerTest()` / `getTests()` / `getTestsByCategory()` -- tests self-register on import |
+| Test Runner | `src/hooks/useTestRunner.ts` | React hook managing selection, sequential execution, progress, results, cancellation |
+| Test Panel | `src/components/Testing/TestPanel.tsx` | UI: checkbox list grouped by category, Run Selected/All, progress, results, batch summary |
+
+### Data Flow
+
+```
+Registry (discovers tests) --> useTestRunner (manages execution) --> TestPanel (renders UI)
+                                      |
+                                      v
+                              Test.run(scene, onProgress, signal)
+                                      |
+                                      v
+                              TestResult { metrics, passed, summary }
+```
+
+### Built-in Tests
+
+| Test ID | Category | What it measures |
+|---------|----------|-----------------|
+| `trajectory-orbit` | Trajectory | Temporal consistency during orbital camera sweep |
+| `trajectory-dolly` | Trajectory | Temporal consistency during zoom in/out |
+| `trajectory-pan` | Trajectory | Temporal consistency during lateral camera pan |
+
+All trajectory tests compute inter-frame SSIM (mean, std dev, min) and optionally per-frame PSNR/SSIM against a reference viewer.
+
+### Adding a New Test
+
+1. **Create the test file** in `src/lib/testing/`:
+
+```typescript
+// src/lib/testing/myNewTest.ts
+import type { Test, TestScene, OnProgress } from './types';
+import { registerTest } from './registry';
+
+const myTest: Test = {
+  id: 'my-category-test-name',
+  name: 'My Test Name',
+  description: 'What this test measures in one sentence.',
+  category: 'My Category',
+  async run(scene: TestScene, onProgress: OnProgress, signal: AbortSignal) {
+    // 1. Use scene.primary (and optionally scene.reference) to access
+    //    camera, controls, canvas, renderer, forceRender()
+    // 2. Call onProgress({ fraction, message, phase }) to update the UI
+    // 3. Check signal.aborted to support cancellation
+    // 4. Return a TestResult with metrics, metricEntries, summary, passed
+
+    onProgress({ fraction: 0.5, message: 'Working...', phase: 'Computing' });
+
+    return {
+      testId: 'my-category-test-name',
+      metrics: { someMetric: 0.95 },
+      metricEntries: [
+        { label: 'Some Metric', value: 0.95, higherIsBetter: true },
+      ],
+      summary: 'Test completed with score 0.95',
+      passed: true,
+      completedAt: new Date().toISOString(),
+      durationMs: 1234,
+    };
+  },
+};
+
+registerTest(myTest);
+export { myTest };
+```
+
+2. **Import your test** in `src/lib/testing/index.ts` so it auto-registers:
+
+```typescript
+export { myTest } from './myNewTest';
+```
+
+3. **Done.** The test appears in the Tests tab immediately, grouped under "My Category".
+
+### Running Tests in the UI
+
+1. Load at least one splat file (Splat A). Load Splat B for reference comparison.
+2. Press **T** or click the **Tests** tab in the right panel.
+3. Check/uncheck individual tests. Use **All** / **None** buttons for bulk selection.
+4. Click **Run Selected** to run checked tests, or **Run All** to run everything.
+5. Watch per-test progress bars and status indicators (idle / running / done / failed).
+6. After completion, see individual result cards with metrics and a batch summary.
+
+---
+
 ## 🛠 Tech Stack
 
 - **Framework**: React 19 + TypeScript

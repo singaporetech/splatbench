@@ -34,25 +34,6 @@ function createImageData(
   return { data, width, height, colorSpace: 'srgb' as PredefinedColorSpace };
 }
 
-function createImageDataFromPixels(
-  width: number,
-  height: number,
-  pixelFn: (x: number, y: number) => [number, number, number, number],
-): ImageData {
-  const data = new Uint8ClampedArray(width * height * 4);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = (y * width + x) * 4;
-      const [r, g, b, a] = pixelFn(x, y);
-      data[idx] = r;
-      data[idx + 1] = g;
-      data[idx + 2] = b;
-      data[idx + 3] = a;
-    }
-  }
-  return { data, width, height, colorSpace: 'srgb' as PredefinedColorSpace };
-}
-
 /** Generate a sequence of frames with controlled variation. */
 function generateFrameSequence(
   count: number,

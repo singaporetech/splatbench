@@ -13,7 +13,7 @@ import { useImageQuality } from '../../hooks/useImageQuality';
 import { useCameraSync } from '../../hooks/useCameraSync';
 import { getScenePresets } from '../../lib/camera/cameraPresets';
 import { captureComparisonScreenshot, generateComparisonFilename, downloadScreenshot } from '../../lib/export/screenshot';
-import { TrajectoryPanel } from '../Trajectory/TrajectoryPanel';
+import { TestPanel } from '../Testing/TestPanel';
 
 // Scene detection from filename
 function detectSceneName(filename: string): string | null {
@@ -41,7 +41,7 @@ export function AppLayout() {
   const [contextA, setContextA] = useState<SparkViewerContext | null>(null);
   const [contextB, setContextB] = useState<SparkViewerContext | null>(null);
   const [cameraSyncEnabled] = useState(true);
-  const [activeTab, setActiveTab] = useState<'metrics' | 'single' | 'batch' | 'export' | 'trajectory'>('metrics');
+  const [activeTab, setActiveTab] = useState<'metrics' | 'single' | 'batch' | 'export' | 'tests'>('metrics');
   const [showCameraPresets, setShowCameraPresets] = useState(true);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
@@ -140,9 +140,9 @@ export function AppLayout() {
         return;
       }
       
-      // 'T' for trajectory tab
+      // 'T' for tests tab
       if (e.key === 't' || e.key === 'T') {
-        setActiveTab('trajectory');
+        setActiveTab('tests');
         return;
       }
     };
@@ -327,7 +327,7 @@ export function AppLayout() {
             <span className="mr-2">C: Capture</span>
             <span className="mr-2">E: Export</span>
             <span className="mr-2">B: Batch</span>
-            <span>T: Trajectory</span>
+            <span>T: Tests</span>
           </div>
           {(fileA || fileB) && (
             <button
@@ -511,7 +511,7 @@ export function AppLayout() {
         <div className="w-80 flex flex-col" style={{ borderLeft: '1px solid #444' }}>
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-600" style={{ backgroundColor: '#3E3E3E' }}>
-            {(['metrics', 'single', 'batch', 'export', 'trajectory'] as const).map((tab) => (
+            {(['metrics', 'single', 'batch', 'export', 'tests'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -529,7 +529,7 @@ export function AppLayout() {
                 {tab === 'single' && 'Single'}
                 {tab === 'batch' && 'Batch'}
                 {tab === 'export' && 'Export'}
-                {tab === 'trajectory' && 'Traj.'}
+                {tab === 'tests' && 'Tests'}
               </button>
             ))}
           </div>
@@ -646,8 +646,8 @@ export function AppLayout() {
               </div>
             )}
 
-            {activeTab === 'trajectory' && (
-              <TrajectoryPanel
+            {activeTab === 'tests' && (
+              <TestPanel
                 contextA={contextA}
                 contextB={contextB}
               />
