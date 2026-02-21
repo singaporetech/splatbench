@@ -62,12 +62,16 @@ function ProgressBar({
   message: string;
   phase?: string;
 }) {
+  const isMetricsPhase = phase?.toLowerCase().includes('metric');
+  const barColor = isMetricsPhase ? '#FFACBF' : '#B39DFF';
+  const phaseColor = isMetricsPhase ? '#FFACBF' : '#B39DFF';
+
   return (
     <div className="mt-3">
       {phase && (
         <div
           className="text-xs mb-1 font-semibold uppercase tracking-wide"
-          style={{ color: '#B39DFF' }}
+          style={{ color: phaseColor }}
         >
           {phase}
         </div>
@@ -86,7 +90,8 @@ function ProgressBar({
           className="h-1.5 rounded-full transition-all duration-150"
           style={{
             width: `${Math.min(fraction * 100, 100)}%`,
-            backgroundColor: '#B39DFF',
+            backgroundColor: barColor,
+            animation: isMetricsPhase && fraction < 1 ? 'pulse 1.5s ease-in-out infinite' : 'none',
           }}
         />
       </div>

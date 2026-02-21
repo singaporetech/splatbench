@@ -108,18 +108,19 @@ async function runTrajectoryTest(
         framesB.push(captureFrame(referenceContext));
       }
 
+      const captureFraction = (i + 1) / totalFrames;
       onProgress({
-        fraction: (i + 1) / totalFrames * 0.7, // 70% for capture phase
-        message: `Capturing frame ${i + 1} / ${totalFrames}`,
-        phase: 'Capturing Frames',
+        fraction: captureFraction,
+        message: `Capturing frame ${i + 1} / ${totalFrames} (${Math.round(captureFraction * 100)}%)`,
+        phase: 'Phase 1: Capturing Frames',
       });
     }
 
-    // Phase 2: Compute metrics
+    // Phase 2: Compute metrics (progress resets for this phase)
     onProgress({
-      fraction: 0.7,
-      message: 'Computing inter-frame metrics...',
-      phase: 'Computing Metrics',
+      fraction: 0,
+      message: 'Computing inter-frame SSIM...',
+      phase: 'Phase 2: Computing Metrics',
     });
 
     // Yield to let UI update
@@ -128,9 +129,9 @@ async function runTrajectoryTest(
     const interFrameMetrics = computeInterFrameSSIM(framesA);
 
     onProgress({
-      fraction: 0.85,
+      fraction: 0.5,
       message: 'Computing per-frame metrics...',
-      phase: 'Computing Metrics',
+      phase: 'Phase 2: Computing Metrics',
     });
 
     await new Promise((r) => setTimeout(r, 0));
@@ -155,7 +156,7 @@ async function runTrajectoryTest(
     onProgress({
       fraction: 1,
       message: 'Complete',
-      phase: 'Done',
+      phase: 'Phase 2: Computing Metrics',
     });
 
     // Restore camera
