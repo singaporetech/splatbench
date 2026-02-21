@@ -8,7 +8,7 @@ import { CameraPresetPanel } from '../Camera/CameraPresetPanel';
 import { useMetrics } from '../../hooks/useMetrics';
 import { useImageQuality } from '../../hooks/useImageQuality';
 import { useCameraSync } from '../../hooks/useCameraSync';
-import { getScenePresets } from '../../lib/camera/cameraPresets';
+import { getScenePresets, resetControlsMomentum } from '../../lib/camera/cameraPresets';
 import { captureComparisonScreenshot, generateComparisonFilename, downloadScreenshot } from '../../lib/export/screenshot';
 import { createExportRecord, exportAndDownload } from '../../lib/export/csvExport';
 import { TestPanel } from '../Testing/TestPanel';
@@ -121,6 +121,7 @@ export function AppLayout() {
         const presets = getScenePresets(currentScene);
         if (presetIndex < presets.length && contextA) {
           const preset = presets[presetIndex];
+          resetControlsMomentum(contextA.controls);
           contextA.camera.position.set(preset.position.x, preset.position.y, preset.position.z);
           contextA.controls.target.set(preset.target.x, preset.target.y, preset.target.z);
           contextA.controls.update();
@@ -365,7 +366,7 @@ export function AppLayout() {
             {/* File info top-left */}
             <div className="absolute top-4 left-4 z-20">
               <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
-                <div className="text-sm font-semibold mb-0.5" style={{ color: '#FFACBF' }}>Splat A (reference)</div>
+                <div className="text-sm font-semibold mb-0.5" style={{ color: '#B39DFF' }}>Reference Model</div>
                 {fileA && (
                   <div className="text-sm truncate max-w-[200px]" title={fileA.name} style={{ color: '#FDFDFB' }}>
                     {fileA.name}
@@ -420,7 +421,7 @@ export function AppLayout() {
             {/* File info top-left */}
             <div className="absolute top-4 left-4 z-20">
               <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
-                <div className="text-sm font-semibold mb-0.5" style={{ color: '#FFACBF' }}>Splat B (test)</div>
+                <div className="text-sm font-semibold mb-0.5" style={{ color: '#FFACBF' }}>Test Model</div>
                 {fileB && (
                   <div className="text-sm truncate max-w-[200px]" title={fileB.name} style={{ color: '#FDFDFB' }}>
                     {fileB.name}

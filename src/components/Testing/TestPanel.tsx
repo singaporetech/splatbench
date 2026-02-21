@@ -324,10 +324,27 @@ export function TestPanel({ contextA, contextB }: TestPanelProps) {
         <h2 className="text-xl mb-1" style={{ color: '#B39DFF' }}>
           Tests
         </h2>
-        <p className="text-xs mb-5" style={{ color: '#888' }}>
-          Select tests to evaluate splat quality. Each test manipulates the
-          scene, captures frames, and computes metrics.
+        <p className="text-xs mb-3" style={{ color: '#888' }}>
+          Each test evaluates the <span style={{ color: '#FFACBF' }}>test model</span> (right pane)
+          against the <span style={{ color: '#B39DFF' }}>reference model</span> (left pane) by
+          capturing frames along a trajectory and computing quality metrics.
         </p>
+        <div
+          className="flex items-center gap-3 text-xs mb-5 px-3 py-2 rounded-lg"
+          style={{ backgroundColor: 'rgba(179, 157, 255, 0.08)', border: '1px solid #44444480' }}
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#B39DFF' }} />
+            <span style={{ color: '#B39DFF' }}>Reference</span>
+            <span style={{ color: '#666' }}>(left)</span>
+          </div>
+          <span style={{ color: '#555' }}>vs</span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#FFACBF' }} />
+            <span style={{ color: '#FFACBF' }}>Test</span>
+            <span style={{ color: '#666' }}>(right)</span>
+          </div>
+        </div>
 
         {/* Selection controls */}
         <div className="flex items-center justify-between mb-4">
@@ -471,7 +488,12 @@ export function TestPanel({ contextA, contextB }: TestPanelProps) {
 
         {!contextA && (
           <div className="text-xs mb-4 text-center" style={{ color: '#888' }}>
-            Load Splat A to run tests
+            Load a reference model (left pane) to run tests
+          </div>
+        )}
+        {contextA && !contextB && (
+          <div className="text-xs mb-4 text-center" style={{ color: '#888' }}>
+            Load a test model (right pane) for quality comparison
           </div>
         )}
 

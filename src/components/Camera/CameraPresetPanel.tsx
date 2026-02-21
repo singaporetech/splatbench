@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ViewpointPreset } from '../../lib/camera/cameraPresets';
-import { STANDARD_VIEWPOINTS, getScenePresets } from '../../lib/camera/cameraPresets';
+import { STANDARD_VIEWPOINTS, getScenePresets, resetControlsMomentum } from '../../lib/camera/cameraPresets';
 import type { SparkViewerContext } from '../../types';
 
 interface CameraPresetPanelProps {
@@ -26,6 +26,9 @@ export function CameraPresetPanel({
     if (!viewerContext) return;
     
     const { camera, controls } = viewerContext;
+    
+    // Stop any ongoing rotation/pan/zoom momentum from previous interaction
+    resetControlsMomentum(controls);
     
     // Apply the preset
     const targetPos = {

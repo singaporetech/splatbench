@@ -168,6 +168,29 @@ export function generatePresetsForScene(
 }
 
 /**
+ * Reset accumulated damping momentum on OrbitControls.
+ *
+ * When enableDamping is true, OrbitControls stores angular velocity in
+ * internal _sphericalDelta and translation velocity in _panOffset. These
+ * must be cleared when teleporting the camera to a preset, otherwise the
+ * residual momentum causes the view to drift immediately after switching.
+ */
+export function resetControlsMomentum(controls: any /* OrbitControls */): void {
+  // Clear rotational momentum (theta = azimuth, phi = polar)
+  if (controls._sphericalDelta) {
+    controls._sphericalDelta.set(0, 0, 0);
+  }
+  // Clear pan momentum
+  if (controls._panOffset) {
+    controls._panOffset.set(0, 0, 0);
+  }
+  // Clear zoom momentum
+  if (controls._scale !== undefined) {
+    controls._scale = 1;
+  }
+}
+
+/**
  * Apply a camera preset to a Three.js camera and controls
  */
 export function applyCameraPreset(
@@ -175,6 +198,9 @@ export function applyCameraPreset(
   controls: any, // OrbitControls
   preset: ViewpointPreset
 ): void {
+  // Stop any ongoing damping / rotation momentum BEFORE applying new pose
+  resetControlsMomentum(controls);
+
   // Apply camera position
   camera.position.set(
     preset.position.x,
