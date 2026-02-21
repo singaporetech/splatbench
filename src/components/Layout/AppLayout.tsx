@@ -285,7 +285,7 @@ export function AppLayout() {
   }, [fileA, fileB]);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900">
+    <div className="flex flex-col bg-gray-900" style={{ height: '100dvh' }}>
       {/* Hidden file inputs */}
       <input
         id="file-input-A"
