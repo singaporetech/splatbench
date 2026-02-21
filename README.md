@@ -53,6 +53,114 @@ Part of the **SIGGRAPH Asia 2026** submission on web-based 3D Gaussian Splatting
 
 ---
 
+## Benchmark Models
+
+SplatBench evaluates 3DGS web deployment formats using established benchmark scenes from the research community. The following datasets are used in the original [3D Gaussian Splatting paper](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) (Kerbl et al., SIGGRAPH 2023) and are standard benchmarks across the field.
+
+### Pre-trained 3DGS Models (Recommended)
+
+The fastest way to get started is to download the **official pre-trained models** from the 3DGS authors. These contain trained `.ply` files ready to load into SplatBench.
+
+| Source | Link | Size | Contents |
+|--------|------|------|----------|
+| **Pre-trained Models** | [models.zip (14 GB)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/datasets/pretrained/models.zip) | 14 GB | All 13 scenes as `.ply` files (point_cloud/iteration_30000/point_cloud.ply) |
+
+Each scene folder contains `point_cloud/iteration_7000/` and `point_cloud/iteration_30000/` subdirectories. Use the `iteration_30000` PLY files for best quality.
+
+> **Note:** The project already includes `bonsai.ply` as a reference model (gitignored, not tracked in version control due to file size). If you trained your own bonsai model, it will be approximately 56 MB in PLY format.
+
+### Source Datasets (Training Data)
+
+If you want to train your own 3DGS models or need the source images for evaluation:
+
+#### 1. Mip-NeRF 360 (Barron et al., CVPR 2022)
+
+The primary benchmark dataset for 3DGS evaluation. Contains 9 scenes (5 outdoor, 4 indoor) with 360-degree captures.
+
+| Scene | Type | Typical PLY Size |
+|-------|------|-----------------|
+| bicycle | outdoor | ~55 MB |
+| garden | outdoor | ~60 MB |
+| stump | outdoor | ~50 MB |
+| flowers | outdoor | ~45 MB |
+| treehill | outdoor | ~45 MB |
+| bonsai | indoor | ~56 MB |
+| counter | indoor | ~50 MB |
+| kitchen | indoor | ~55 MB |
+| room | indoor | ~50 MB |
+
+- **Download:** [jonbarron.info/mipnerf360](https://jonbarron.info/mipnerf360/) or directly via `wget http://storage.googleapis.com/gresearch/refraw360/360_v2.zip`
+- **Format:** Source images + COLMAP sparse reconstruction
+- **Note:** The `treehill` and `flowers` scenes require requesting access from the authors
+
+#### 2. Tanks and Temples (Knapitsch et al., 2017)
+
+Large-scale indoor/outdoor scenes commonly used for 3DGS benchmarking.
+
+| Scene | Type | Typical PLY Size |
+|-------|------|-----------------|
+| truck | outdoor | ~65 MB |
+| train | outdoor | ~55 MB |
+
+- **Download (COLMAP data):** [tandt_db.zip (650 MB)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/datasets/input/tandt_db.zip) from the 3DGS authors (includes both T&T and Deep Blending scenes)
+- **Original dataset:** [tanksandtemples.org/download](https://tanksandtemples.org/download/)
+- **Format:** Source images + COLMAP sparse reconstruction
+
+#### 3. Deep Blending (Hedman et al., SIGGRAPH Asia 2018)
+
+Indoor scenes with complex lighting and reflections.
+
+| Scene | Type | Typical PLY Size |
+|-------|------|-----------------|
+| drjohnson | indoor | ~60 MB |
+| playroom | indoor | ~55 MB |
+
+- **Download (COLMAP data):** Included in [tandt_db.zip (650 MB)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/datasets/input/tandt_db.zip) above
+- **Original dataset:** [Deep Blending datasets page](https://www-sop.inria.fr/reves/publis/2018/HPPFDB18/datasets.html)
+- **Format:** Source images + COLMAP reconstruction
+
+### Getting .splat, .ksplat, and .spz Files
+
+The pre-trained models provide `.ply` files. To benchmark other formats in SplatBench, you need to convert them:
+
+#### Online Conversion
+
+- **[SuperSplat Editor](https://superspl.at/editor)** (PlayCanvas): Load a `.ply` file, edit/crop, and export as compressed PLY or other formats. Browser-based, no install required.
+- **[antimatter15/splat viewer](https://antimatter15.com/splat/)**: Drag and drop a `.ply` file to automatically convert to `.splat` format.
+
+#### CLI Conversion
+
+- **[splat-transform](https://github.com/playcanvas/splat-transform)** (PlayCanvas CLI tool): Converts between PLY, SPLAT, KSPLAT, SOG, SPZ, and CSV formats.
+  ```bash
+  npm install -g @nicedoc/splat-transform
+  splat-transform input.ply output.splat
+  splat-transform input.ply output.ksplat
+  ```
+
+- **[Niantic SPZ tools](https://github.com/nianticlabs/spz)**: Official encoder/decoder for the SPZ compressed format.
+  ```bash
+  # Build from source, then:
+  ./spz_encode input.ply output.spz
+  ```
+
+#### Typical File Sizes After Conversion (Bonsai Scene, ~234K splats)
+
+| Format | File Size | Compression vs PLY |
+|--------|-----------|-------------------|
+| `.ply` | ~56 MB | baseline |
+| `.splat` | ~7.1 MB | ~87% smaller |
+| `.ksplat` | ~5.4 MB | ~90% smaller |
+| `.spz` | ~3.6 MB | ~94% smaller |
+
+### Pre-converted .splat Files
+
+Some sources provide pre-converted `.splat` files that you can load directly:
+
+- **[antimatter15/splat demos](https://antimatter15.com/splat/)**: Hosts several pre-converted `.splat` files (e.g., plush, truck scenes) that can be referenced via URL
+- **[Polycam gallery](https://poly.cam/explore)**: Community-uploaded Gaussian splat captures in various formats
+
+---
+
 ## 🚀 Quick Start
 
 ### Development
