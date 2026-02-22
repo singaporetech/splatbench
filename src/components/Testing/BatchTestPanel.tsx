@@ -6,7 +6,7 @@
  * and runs all registered tests on each pair sequentially.
  */
 
-import { useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import type { SparkViewerContext } from '../../types';
 import type { TestScene } from '../../lib/testing/types';
 import type { GSFile } from '../../types';
@@ -22,6 +22,48 @@ interface BatchTestPanelProps {
   onLoadRef: (file: GSFile) => Promise<SparkViewerContext | null>;
   /** Callback to load a file into the test (right) viewer */
   onLoadTest: (file: GSFile) => Promise<SparkViewerContext | null>;
+}
+
+// ─── Info Tooltip ───────────────────────────────────────────────────────────
+
+function InfoTooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  const toggle = useCallback(() => setShow((v) => !v), []);
+
+  return (
+    <span className="relative inline-flex items-center">
+      <svg
+        className="w-4 h-4 cursor-help"
+        fill="none"
+        stroke="#888"
+        viewBox="0 0 24 24"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={toggle}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      {show && (
+        <div
+          className="absolute left-5 top-0 p-3 rounded-lg shadow-lg text-xs leading-relaxed"
+          style={{
+            zIndex: 9999,
+            width: '240px',
+            backgroundColor: '#2D2D2D',
+            border: '1px solid #555',
+            color: '#FDFDFB',
+          }}
+        >
+          {text}
+        </div>
+      )}
+    </span>
+  );
 }
 
 // ─── Pair Preview Card ──────────────────────────────────────────────────────
@@ -219,6 +261,14 @@ export function BatchTestPanel({
         className="hidden"
         onChange={handleInputChange}
       />
+
+      {/* Batch mode explanation */}
+      <p className="text-xs mb-3" style={{ color: '#888' }}>
+        Each <span style={{ color: '#B39DFF' }}>reference</span> splat is kept fixed while its
+        paired <span style={{ color: '#FFACBF' }}>test</span> splat is compared against it.
+        All test pairs are processed one by one.{' '}
+        <InfoTooltip text="Place ref_<name> and test_<name> file pairs in a folder. For each pair, the reference splat is loaded as ground truth and the test splat is evaluated against it using all registered metrics. Results are reported per pair." />
+      </p>
 
       {/* Naming convention help */}
       <div

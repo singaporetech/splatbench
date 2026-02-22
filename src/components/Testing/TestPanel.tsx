@@ -10,7 +10,7 @@
  *   pairs, and run all tests on each pair sequentially.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { SparkViewerContext } from '../../types';
 import type { GSFile } from '../../types';
 import type { TestScene, TestStatus } from '../../lib/testing/types';
@@ -58,6 +58,48 @@ function StatusDot({ status }: { status: TestStatus }) {
       }}
       title={cfg.label}
     />
+  );
+}
+
+// ─── Info Tooltip ───────────────────────────────────────────────────────────
+
+function InfoTooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  const toggle = useCallback(() => setShow((v) => !v), []);
+
+  return (
+    <span className="relative inline-flex items-center">
+      <svg
+        className="w-4 h-4 cursor-help"
+        fill="none"
+        stroke="#888"
+        viewBox="0 0 24 24"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={toggle}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      {show && (
+        <div
+          className="absolute left-5 top-0 p-3 rounded-lg shadow-lg text-xs leading-relaxed"
+          style={{
+            zIndex: 9999,
+            width: '240px',
+            backgroundColor: '#2D2D2D',
+            border: '1px solid #555',
+            color: '#FDFDFB',
+          }}
+        >
+          {text}
+        </div>
+      )}
+    </span>
   );
 }
 
@@ -328,9 +370,11 @@ function CurrentModelsPanel({
     <div>
       {/* Explanation */}
       <p className="text-xs mb-3" style={{ color: '#888' }}>
-        Run tests on the <span style={{ color: '#B39DFF' }}>reference model</span> (left pane)
-        and <span style={{ color: '#FFACBF' }}>test model</span> (right pane) currently loaded
-        in the viewer.
+        Compare a{' '}
+        <span style={{ color: '#FFACBF' }}>test model</span> (right pane) against a fixed{' '}
+        <span style={{ color: '#B39DFF' }}>reference model</span> (left pane) using quantitative
+        metrics.{' '}
+        <InfoTooltip text="Each selected test captures frames from both the reference and test splats at matching camera positions, then computes quality metrics (PSNR, SSIM) and temporal consistency scores. The reference stays fixed as the ground truth." />
       </p>
       <div
         className="flex items-center gap-3 text-xs mb-5 px-3 py-2 rounded-lg"
@@ -631,7 +675,7 @@ export function TestPanel({ contextA, contextB, onLoadRef, onLoadTest }: TestPan
               color: subTab === 'current' ? '#1F1F1F' : '#888',
             }}
           >
-            Current Models
+            Single Pair
           </button>
           <button
             onClick={() => setSubTab('batch')}
@@ -642,7 +686,7 @@ export function TestPanel({ contextA, contextB, onLoadRef, onLoadTest }: TestPan
               borderLeft: '1px solid #555',
             }}
           >
-            Batch
+            Batch (Multi-Pair)
           </button>
         </div>
 
