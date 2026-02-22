@@ -4,10 +4,10 @@
 
 ![SplatBench Screenshot](./screenshot.png)
 
-## 🎯 Purpose
+## Purpose
 
 SplatBench provides **standardized, reproducible benchmarks** for comparing different 3DGS web formats (.ply, .splat, .ksplat, .spz) with:
-- **Side-by-side comparison** - Visual A/B testing with synchronized cameras
+- **Side-by-side comparison** - Reference vs test model comparison with synchronized cameras
 - **Quality metrics** - PSNR and SSIM calculations for objective evaluation
 - **Performance profiling** - FPS, load time, memory usage, and file size
 - **Academic rigor** - Designed for research papers and technical reports
@@ -16,14 +16,14 @@ Part of the **SIGGRAPH Asia 2026** submission on web-based 3D Gaussian Splatting
 
 ---
 
-## ✨ Features
+## Features
 
-### 🎨 Dual Viewer System
-- **Splat A & B panels** - Load two different formats for direct comparison
+### Dual Viewer System
+- **Reference & Test panels** - Load a reference model (left) and test model (right) for direct comparison
 - **Camera synchronization** - Move both viewers together for consistent viewpoints
 - **Real-time rendering** - 60+ FPS performance with Three.js + Spark renderer
 
-### 📊 Comprehensive Metrics
+### Comprehensive Metrics
 - **Quality Metrics**
   - **PSNR** (Peak Signal-to-Noise Ratio) - Objective quality measurement
   - **SSIM** (Structural Similarity Index) - Perceptual quality assessment
@@ -40,12 +40,12 @@ Part of the **SIGGRAPH Asia 2026** submission on web-based 3D Gaussian Splatting
   - **Splat Count** - Number of Gaussian splats
   - **Format Detection** - Automatic format identification
 
-### 🎮 Interactive Controls
+### Interactive Controls
 - **Orbit Controls** - Rotate, pan, and zoom with mouse/trackpad
 - **Camera Distance Display** - Color-coded distance indicators for standardized evaluation
 - **Drag-and-Drop** - Easy file loading with visual feedback
 
-### 📁 Format Support
+### Format Support
 - **`.ply`** - Original PLY format (56MB baseline)
 - **`.splat`** - Standard splat format (7.1MB, ~87% smaller)
 - **`.ksplat`** - K-splat compressed (5.4MB, ~90% smaller)
@@ -161,7 +161,7 @@ Some sources provide pre-converted `.splat` files that you can load directly:
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Development
 
@@ -181,7 +181,7 @@ npm run preview  # Preview production build
 
 ---
 
-## 🎓 Academic Usage
+## Academic Usage
 
 ### Reproducible Benchmarks
 
@@ -306,7 +306,7 @@ export { myTest } from './myNewTest';
 
 ### Running Tests in the UI
 
-1. Load at least one splat file (Splat A). Load Splat B for reference comparison.
+1. Load a reference model (left pane). Load a test model (right pane) for comparison.
 2. Press **T** or click the **Tests** tab in the right panel.
 3. Check/uncheck individual tests. Use **All** / **None** buttons for bulk selection.
 4. Click **Run Selected** to run checked tests, or **Run All** to run everything.
@@ -315,25 +315,25 @@ export { myTest } from './myNewTest';
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 - **Framework**: React 19 + TypeScript
 - **Build Tool**: Vite 7.3
-- **3D Rendering**: Three.js 0.182 + **[@sparkjsdev/spark](https://github.com/worldlabs-xyz/spark)** 🆕
+- **3D Rendering**: Three.js 0.182 + **[@sparkjsdev/spark](https://github.com/worldlabs-xyz/spark)**
 - **Styling**: Tailwind CSS v4
 - **Quality Metrics**: Custom PSNR/SSIM implementation
 - **Deployment**: GitHub Pages (optional)
 
-### ⚡️ Major Update: Spark Renderer
+### Major Update: Spark Renderer
 
 **SplatBench now uses Spark by World Labs** - Migrated from the abandoned `@mkkellogg/gaussian-splats-3d` to the actively maintained `@sparkjsdev/spark` renderer.
 
 **Why Spark?**
-- ✅ **Active development** - Backed by World Labs team
-- ✅ **Better performance** - Optimized for mobile and low-power devices
-- ✅ **Native format support** - Built-in .spz, .sog support
-- ✅ **Three.js compatible** - Works like standard Three.js objects
-- ✅ **Future-proof** - Ongoing updates and maintenance
+- **Active development** - Backed by World Labs team
+- **Better performance** - Optimized for mobile and low-power devices
+- **Native format support** - Built-in .spz, .sog support
+- **Three.js compatible** - Works like standard Three.js objects
+- **Future-proof** - Ongoing updates and maintenance
 
 **Migration Details:**
 - Standard Three.js scene structure (Scene, Camera, Renderer, OrbitControls)
@@ -343,7 +343,7 @@ export { myTest } from './myNewTest';
 
 ---
 
-## 📈 Performance
+## Performance
 
 Typical performance on modern hardware (M1/M2 Mac, RTX 3060+):
 
@@ -358,7 +358,7 @@ Typical performance on modern hardware (M1/M2 Mac, RTX 3060+):
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Running Tests
 
@@ -393,8 +393,8 @@ Tests use [Vitest](https://vitest.dev/) and run entirely in Node (no browser req
 ### Manual Testing Checklist
 
 1. **File Loading**
-   - [ ] Load .ply file into Splat A
-   - [ ] Load .splat file into Splat B
+   - [ ] Load .ply file into reference model (left pane)
+   - [ ] Load .splat file into test model (right pane)
    - [ ] Verify splat counts match (233,992)
    - [ ] Test .ksplat and .spz formats
 
@@ -423,7 +423,7 @@ Sample files available in `public/` directory:
 
 ---
 
-## 🌐 Deployment
+## Deployment
 
 ### GitHub Pages (Manual)
 
@@ -446,7 +446,7 @@ The site will be available at `https://yourusername.github.io/splatbench/`
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 This is part of an academic research project. Contributions are welcome, especially:
 
@@ -458,13 +458,13 @@ This is part of an academic research project. Contributions are welcome, especia
 
 ---
 
-## 📄 License
+## License
 
 MIT License - See [LICENSE](../LICENSE) for details.
 
 ---
 
-## 🔗 Related Work
+## Related Work
 
 - [3D Gaussian Splatting](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) - Original paper
 - [Spark by World Labs](https://github.com/worldlabs-xyz/spark) - Renderer used by SplatBench
@@ -474,7 +474,7 @@ MIT License - See [LICENSE](../LICENSE) for details.
 
 ---
 
-## 📞 Support
+## Support
 
 For questions, issues, or academic collaboration:
 - Open an issue on GitHub
@@ -482,4 +482,4 @@ For questions, issues, or academic collaboration:
 
 ---
 
-**Built for researchers, by researchers. 🎓**
+**Built for researchers, by researchers.**
