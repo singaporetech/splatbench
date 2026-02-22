@@ -64,7 +64,13 @@ export interface UseTestRunnerReturn {
   /** All results from the most recent run, in order */
   results: TestResult[];
   /** Count of passed / failed / total from last run */
-  summary: { passed: number; failed: number; total: number };
+  summary: {
+    passed: number;
+    failed: number;
+    qualityFailed: number;
+    executionErrors: number;
+    total: number;
+  };
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
@@ -261,13 +267,26 @@ export function useTestRunner(): UseTestRunnerReturn {
 
   const summary = useMemo(() => {
     let passed = 0;
-    let failed = 0;
+    let qualityFailed = 0;
+    let executionErrors = 0;
     for (const r of results) {
       if (r.passed) passed++;
-      else failed++;
+      else qualityFailed++;
     }
-    return { passed, failed, total: results.length };
-  }, [results]);
+    // Count execution errors (tests that threw exceptions, no result)
+    for (const [, state] of testStates) {
+      if (state.status === 'failed' && state.error && !state.result) {
+        executionErrors++;
+      }
+    }
+    return {
+      passed,
+      failed: qualityFailed + executionErrors,
+      qualityFailed,
+      executionErrors,
+      total: results.length + executionErrors,
+    };
+  }, [results, testStates]);
 
   return {
     tests,

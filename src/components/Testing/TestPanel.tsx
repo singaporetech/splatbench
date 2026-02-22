@@ -156,17 +156,24 @@ function ProgressBar({
 function TestQueueProgress({
   completed,
   total,
+  isRunning,
 }: {
   completed: number;
   total: number;
+  isRunning: boolean;
 }) {
   if (total === 0) return null;
+  // During execution, show 1-based index of the test currently running
+  // After completion, show final counts
+  const currentTest = isRunning ? Math.min(completed + 1, total) : completed;
   const fraction = completed / total;
   return (
     <div className="mb-4">
       <div className="flex justify-between text-xs mb-1">
         <span style={{ color: '#FFACBF' }}>
-          Test {completed}/{total}
+          {isRunning
+            ? `Running test ${currentTest} of ${total}`
+            : `${completed} of ${total} complete`}
         </span>
         <span className="font-mono" style={{ color: '#FDFDFB' }}>
           {completed} / {total}
@@ -192,10 +199,42 @@ function TestQueueProgress({
 
 function TestResultCard({ state, testName }: { state: TestRunState; testName: string }) {
   const result = state.result;
+
+  // Execution error: test threw an exception and has no result
+  if (!result && state.error) {
+    return (
+      <div
+        className="mt-3 p-3 rounded-lg"
+        style={{
+          backgroundColor: 'rgba(255, 87, 95, 0.08)',
+          border: '1px solid #FF575F40',
+        }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold" style={{ color: '#FDFDFB' }}>
+            {testName}
+          </span>
+          <span
+            className="text-xs font-bold px-2 py-0.5 rounded"
+            style={{ backgroundColor: '#FF575F20', color: '#FF575F' }}
+          >
+            ERROR
+          </span>
+        </div>
+        <div className="text-xs mb-1" style={{ color: '#FF575F' }}>
+          Execution error: {state.error}
+        </div>
+        <div className="text-xs" style={{ color: '#888' }}>
+          This test could not run. Ensure both models are loaded correctly and try again.
+        </div>
+      </div>
+    );
+  }
+
   if (!result) return null;
 
-  const gradeColor = result.passed ? '#BEFF74' : '#FF575F';
-  const gradeLabel = result.passed ? 'PASS' : 'FAIL';
+  const gradeColor = result.passed ? '#BEFF74' : '#FFD59B';
+  const gradeLabel = result.passed ? 'PASS' : 'LOW QUALITY';
 
   return (
     <div
@@ -285,10 +324,14 @@ function TestResultCard({ state, testName }: { state: TestRunState; testName: st
 function ResultsSummary({
   passed,
   failed,
+  qualityFailed,
+  executionErrors,
   total,
 }: {
   passed: number;
   failed: number;
+  qualityFailed: number;
+  executionErrors: number;
   total: number;
 }) {
   if (total === 0) return null;
@@ -316,9 +359,14 @@ function ResultsSummary({
       >
         {passed} / {total} Passed
       </div>
-      {failed > 0 && (
+      {qualityFailed > 0 && (
+        <div className="text-xs mt-1" style={{ color: '#FFD59B' }}>
+          {qualityFailed} test{qualityFailed > 1 ? 's' : ''} scored below quality threshold
+        </div>
+      )}
+      {executionErrors > 0 && (
         <div className="text-xs mt-1" style={{ color: '#FF575F' }}>
-          {failed} test{failed > 1 ? 's' : ''} failed
+          {executionErrors} test{executionErrors > 1 ? 's' : ''} could not run (execution error)
         </div>
       )}
     </div>
@@ -363,7 +411,7 @@ function CurrentModelsPanel({
     return map;
   }, [runner.tests]);
 
-  const hasResults = runner.results.length > 0;
+  const hasResults = runner.results.length > 0 || runner.summary.executionErrors > 0;
   const showQueueProgress = runner.isRunning && runner.totalInBatch > 1;
 
   return (
@@ -549,6 +597,7 @@ function CurrentModelsPanel({
         <TestQueueProgress
           completed={runner.completedCount}
           total={runner.totalInBatch}
+          isRunning={runner.isRunning}
         />
       )}
 
@@ -608,13 +657,15 @@ function CurrentModelsPanel({
           <ResultsSummary
             passed={runner.summary.passed}
             failed={runner.summary.failed}
+            qualityFailed={runner.summary.qualityFailed}
+            executionErrors={runner.summary.executionErrors}
             total={runner.summary.total}
           />
 
           {/* Individual results */}
           {runner.tests.map((test) => {
             const state = runner.testStates.get(test.id);
-            if (!state || !state.result) return null;
+            if (!state || (!state.result && !state.error)) return null;
             return (
               <TestResultCard
                 key={test.id}

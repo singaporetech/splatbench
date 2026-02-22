@@ -111,10 +111,19 @@ async function runTrajectoryTest(
       const captureFraction = (i + 1) / totalFrames;
       onProgress({
         fraction: captureFraction,
-        message: `Capturing frame ${i + 1} / ${totalFrames} (${Math.round(captureFraction * 100)}%)`,
+        message: `Capturing frame ${i + 1} / ${totalFrames}`,
         phase: 'Phase 1: Capturing Frames',
       });
     }
+
+    // Ensure Phase 1 shows 100% before transitioning
+    onProgress({
+      fraction: 1,
+      message: `All ${totalFrames} frames captured`,
+      phase: 'Phase 1: Capturing Frames',
+    });
+    // Yield to let UI render the 100% state
+    await new Promise((r) => setTimeout(r, 50));
 
     // Phase 2: Compute metrics (progress resets for this phase)
     onProgress({
