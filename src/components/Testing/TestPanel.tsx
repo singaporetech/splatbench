@@ -10,11 +10,10 @@
  *   pairs, and run all tests on each pair sequentially.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { SparkViewerContext } from '../../types';
 import type { GSFile } from '../../types';
 import type { TestScene, TestStatus } from '../../lib/testing/types';
-import { getCategories } from '../../lib/testing/registry';
 import { useTestRunner } from '../../hooks/useTestRunner';
 import type { TestRunState } from '../../hooks/useTestRunner';
 import { BatchTestPanel } from './BatchTestPanel';
@@ -61,20 +60,34 @@ function StatusDot({ status }: { status: TestStatus }) {
   );
 }
 
-// ─── Info Tooltip ───────────────────────────────────────────────────────────
+// ─── Info Tooltip (viewport-aware) ──────────────────────────────────────────
 
 function InfoTooltip({ text }: { text: string }) {
   const [show, setShow] = useState(false);
+  const [flipLeft, setFlipLeft] = useState(false);
+  const triggerRef = useRef<HTMLSpanElement>(null);
   const toggle = useCallback(() => setShow((v) => !v), []);
 
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    // Flip tooltip to the left when trigger is in the right half of viewport
+    setFlipLeft(rect.left > window.innerWidth / 2);
+  }, []);
+
+  const handleShow = useCallback(() => {
+    updatePosition();
+    setShow(true);
+  }, [updatePosition]);
+
   return (
-    <span className="relative inline-flex items-center">
+    <span ref={triggerRef} className="relative inline-flex items-center">
       <svg
         className="w-4 h-4 cursor-help"
         fill="none"
         stroke="#888"
         viewBox="0 0 24 24"
-        onMouseEnter={() => setShow(true)}
+        onMouseEnter={handleShow}
         onMouseLeave={() => setShow(false)}
         onClick={toggle}
       >
@@ -87,13 +100,14 @@ function InfoTooltip({ text }: { text: string }) {
       </svg>
       {show && (
         <div
-          className="absolute left-5 top-0 p-3 rounded-lg shadow-lg text-xs leading-relaxed"
+          className="absolute top-0 p-3 rounded-lg shadow-lg text-xs leading-relaxed"
           style={{
             zIndex: 9999,
             width: '240px',
             backgroundColor: '#2D2D2D',
             border: '1px solid #555',
             color: '#FDFDFB',
+            ...(flipLeft ? { right: '24px' } : { left: '20px' }),
           }}
         >
           {text}
@@ -383,7 +397,6 @@ function CurrentModelsPanel({
   contextB: SparkViewerContext | null;
 }) {
   const runner = useTestRunner();
-  const categories = useMemo(() => getCategories(), []);
 
   // Build the TestScene from viewer contexts
   const scene: TestScene | null = contextA
@@ -400,22 +413,57 @@ function CurrentModelsPanel({
     if (scene) runner.runAll(scene);
   };
 
-  // Group tests by category
-  const grouped = useMemo(() => {
-    const map = new Map<string, typeof runner.tests>();
-    for (const t of runner.tests) {
-      const list = map.get(t.category) || [];
-      list.push(t);
-      map.set(t.category, list);
-    }
-    return map;
-  }, [runner.tests]);
-
   const hasResults = runner.results.length > 0 || runner.summary.executionErrors > 0;
   const showQueueProgress = runner.isRunning && runner.totalInBatch > 1;
 
+  // Active test progress data
+  const activeState = runner.activeTestId
+    ? runner.testStates.get(runner.activeTestId)
+    : null;
+
   return (
     <div>
+      {/* Sticky progress container -- visible only when tests are running */}
+      {runner.isRunning && (
+        <div
+          className="px-6 py-3 -mx-6 -mt-0 mb-4"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            backgroundColor: '#3E3E3E',
+            borderBottom: '1px solid #44444480',
+          }}
+        >
+          {showQueueProgress && (
+            <TestQueueProgress
+              completed={runner.completedCount}
+              total={runner.totalInBatch}
+              isRunning={runner.isRunning}
+            />
+          )}
+          {activeState?.progress && (
+            <ProgressBar
+              fraction={activeState.progress.fraction}
+              message={activeState.progress.message}
+              phase={activeState.progress.phase}
+            />
+          )}
+          {activeState?.error && (
+            <div
+              className="mt-2 p-2 rounded-lg text-xs"
+              style={{
+                backgroundColor: 'rgba(255, 87, 95, 0.15)',
+                border: '1px solid #FF575F',
+                color: '#FF575F',
+              }}
+            >
+              {activeState.error}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Explanation */}
       <p className="text-xs mb-3" style={{ color: '#888' }}>
         Compare a{' '}
@@ -476,65 +524,47 @@ function CurrentModelsPanel({
         </span>
       </div>
 
-      {/* Test list grouped by category */}
-      <div className="mb-5 space-y-4">
-        {categories.map((cat) => {
-          const testsInCat = grouped.get(cat) || [];
-          return (
-            <div key={cat}>
-              <div
-                className="text-xs font-semibold uppercase tracking-wide mb-2"
-                style={{ color: '#FFACBF' }}
-              >
-                {cat}
-              </div>
-              <div className="space-y-1">
-                {testsInCat.map((test) => {
-                  const state = runner.testStates.get(test.id);
-                  const status: TestStatus = state?.status ?? 'idle';
-                  const isSelected = runner.selectedIds.has(test.id);
+      {/* Test list -- flat numbered list (no category headers) */}
+      <div className="mb-5 space-y-1">
+        {runner.tests.map((test, index) => {
+          const state = runner.testStates.get(test.id);
+          const status: TestStatus = state?.status ?? 'idle';
+          const isSelected = runner.selectedIds.has(test.id);
 
-                  return (
-                    <label
-                      key={test.id}
-                      className="flex items-start gap-2 py-2 px-2 rounded cursor-pointer transition-colors"
-                      style={{
-                        backgroundColor:
-                          runner.activeTestId === test.id
-                            ? 'rgba(179, 157, 255, 0.1)'
-                            : 'transparent',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => runner.toggleTest(test.id)}
-                        disabled={runner.isRunning}
-                        className="mt-0.5 rounded flex-shrink-0"
-                        style={{ accentColor: '#B39DFF' }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <StatusDot status={status} />
-                          <span
-                            className="text-sm font-semibold"
-                            style={{ color: '#FDFDFB' }}
-                          >
-                            {test.name}
-                          </span>
-                        </div>
-                        <div
-                          className="text-xs mt-0.5 leading-snug"
-                          style={{ color: '#888' }}
-                        >
-                          {test.description}
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
+          return (
+            <label
+              key={test.id}
+              className="flex items-center gap-2 py-2 px-2 rounded cursor-pointer transition-colors"
+              style={{
+                backgroundColor:
+                  runner.activeTestId === test.id
+                    ? 'rgba(179, 157, 255, 0.1)'
+                    : 'transparent',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => runner.toggleTest(test.id)}
+                disabled={runner.isRunning}
+                className="rounded flex-shrink-0"
+                style={{ accentColor: '#B39DFF' }}
+              />
+              <span
+                className="text-xs font-mono w-5 text-center flex-shrink-0"
+                style={{ color: '#888' }}
+              >
+                {index + 1}
+              </span>
+              <StatusDot status={status} />
+              <span
+                className="text-sm font-semibold"
+                style={{ color: '#FDFDFB' }}
+              >
+                {test.name}
+              </span>
+              <InfoTooltip text={test.description} />
+            </label>
           );
         })}
       </div>
@@ -591,48 +621,6 @@ function CurrentModelsPanel({
           Load a test model (right pane) for quality comparison
         </div>
       )}
-
-      {/* Test queue progress (when running multiple selected tests) */}
-      {showQueueProgress && (
-        <TestQueueProgress
-          completed={runner.completedCount}
-          total={runner.totalInBatch}
-          isRunning={runner.isRunning}
-        />
-      )}
-
-      {/* Active test progress */}
-      {runner.activeTestId &&
-        (() => {
-          const state = runner.testStates.get(runner.activeTestId);
-          if (!state?.progress) return null;
-          return (
-            <ProgressBar
-              fraction={state.progress.fraction}
-              message={state.progress.message}
-              phase={state.progress.phase}
-            />
-          );
-        })()}
-
-      {/* Error for active test */}
-      {runner.activeTestId &&
-        (() => {
-          const state = runner.testStates.get(runner.activeTestId);
-          if (!state?.error) return null;
-          return (
-            <div
-              className="mt-3 p-3 rounded-lg text-xs"
-              style={{
-                backgroundColor: 'rgba(255, 87, 95, 0.15)',
-                border: '1px solid #FF575F',
-                color: '#FF575F',
-              }}
-            >
-              {state.error}
-            </div>
-          );
-        })()}
 
       {/* Results */}
       {hasResults && !runner.isRunning && (

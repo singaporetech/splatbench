@@ -24,20 +24,33 @@ interface BatchTestPanelProps {
   onLoadTest: (file: GSFile) => Promise<SparkViewerContext | null>;
 }
 
-// ─── Info Tooltip ───────────────────────────────────────────────────────────
+// ─── Info Tooltip (viewport-aware) ──────────────────────────────────────────
 
 function InfoTooltip({ text }: { text: string }) {
   const [show, setShow] = useState(false);
+  const [flipLeft, setFlipLeft] = useState(false);
+  const triggerRef = useRef<HTMLSpanElement>(null);
   const toggle = useCallback(() => setShow((v) => !v), []);
 
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setFlipLeft(rect.left > window.innerWidth / 2);
+  }, []);
+
+  const handleShow = useCallback(() => {
+    updatePosition();
+    setShow(true);
+  }, [updatePosition]);
+
   return (
-    <span className="relative inline-flex items-center">
+    <span ref={triggerRef} className="relative inline-flex items-center">
       <svg
         className="w-4 h-4 cursor-help"
         fill="none"
         stroke="#888"
         viewBox="0 0 24 24"
-        onMouseEnter={() => setShow(true)}
+        onMouseEnter={handleShow}
         onMouseLeave={() => setShow(false)}
         onClick={toggle}
       >
@@ -50,13 +63,14 @@ function InfoTooltip({ text }: { text: string }) {
       </svg>
       {show && (
         <div
-          className="absolute left-5 top-0 p-3 rounded-lg shadow-lg text-xs leading-relaxed"
+          className="absolute top-0 p-3 rounded-lg shadow-lg text-xs leading-relaxed"
           style={{
             zIndex: 9999,
             width: '240px',
             backgroundColor: '#2D2D2D',
             border: '1px solid #555',
             color: '#FDFDFB',
+            ...(flipLeft ? { right: '24px' } : { left: '20px' }),
           }}
         >
           {text}
@@ -262,6 +276,67 @@ export function BatchTestPanel({
         onChange={handleInputChange}
       />
 
+      {/* Sticky batch progress -- visible only when running */}
+      {isRunning && (
+        <div
+          className="px-6 py-3 -mx-6 -mt-0 mb-4"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            backgroundColor: '#3E3E3E',
+            borderBottom: '1px solid #44444480',
+          }}
+        >
+          <div className="flex justify-between text-xs mb-1">
+            <span style={{ color: '#FFACBF' }}>
+              Processing pair {batchRunner.currentPairIndex + 1}/{batchRunner.totalPairs}
+            </span>
+            <span className="font-mono" style={{ color: '#FDFDFB' }}>
+              {Math.round(((batchRunner.currentPairIndex) / batchRunner.totalPairs) * 100)}%
+            </span>
+          </div>
+          <div
+            className="w-full h-2 rounded-full overflow-hidden mb-2"
+            style={{ backgroundColor: '#555' }}
+          >
+            <div
+              className="h-2 rounded-full transition-all duration-300"
+              style={{
+                width: `${Math.min((batchRunner.currentPairIndex / batchRunner.totalPairs) * 100, 100)}%`,
+                backgroundColor: '#BEFF74',
+              }}
+            />
+          </div>
+          <div className="text-xs" style={{ color: '#888' }}>
+            <span style={{ color: '#B39DFF' }}>{batchRunner.currentPairName}</span>
+            {' / '}
+            <span style={{ color: '#FFACBF' }}>{batchRunner.currentTestName}</span>
+          </div>
+          {/* Current test progress */}
+          <div className="mt-2">
+            <div className="flex justify-between text-xs mb-1">
+              <span style={{ color: '#888' }}>{batchRunner.currentTestMessage}</span>
+              <span className="font-mono text-xs" style={{ color: '#FDFDFB' }}>
+                {Math.round(batchRunner.currentTestProgress * 100)}%
+              </span>
+            </div>
+            <div
+              className="w-full h-1.5 rounded-full overflow-hidden"
+              style={{ backgroundColor: '#444' }}
+            >
+              <div
+                className="h-1.5 rounded-full transition-all duration-150"
+                style={{
+                  width: `${Math.min(batchRunner.currentTestProgress * 100, 100)}%`,
+                  backgroundColor: '#B39DFF',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Batch mode explanation */}
       <p className="text-xs mb-3" style={{ color: '#888' }}>
         Each <span style={{ color: '#B39DFF' }}>reference</span> splat is kept fixed while its
@@ -416,58 +491,6 @@ export function BatchTestPanel({
               Run Batch Tests ({folder.pairs.length} pair{folder.pairs.length > 1 ? 's' : ''})
             </button>
           )}
-        </div>
-      )}
-
-      {/* Batch progress */}
-      {isRunning && (
-        <div className="mb-4">
-          <div className="flex justify-between text-xs mb-1">
-            <span style={{ color: '#FFACBF' }}>
-              Processing pair {batchRunner.currentPairIndex + 1}/{batchRunner.totalPairs}
-            </span>
-            <span className="font-mono" style={{ color: '#FDFDFB' }}>
-              {Math.round(((batchRunner.currentPairIndex) / batchRunner.totalPairs) * 100)}%
-            </span>
-          </div>
-          <div
-            className="w-full h-2 rounded-full overflow-hidden mb-2"
-            style={{ backgroundColor: '#555' }}
-          >
-            <div
-              className="h-2 rounded-full transition-all duration-300"
-              style={{
-                width: `${Math.min((batchRunner.currentPairIndex / batchRunner.totalPairs) * 100, 100)}%`,
-                backgroundColor: '#BEFF74',
-              }}
-            />
-          </div>
-          <div className="text-xs" style={{ color: '#888' }}>
-            <span style={{ color: '#B39DFF' }}>{batchRunner.currentPairName}</span>
-            {' / '}
-            <span style={{ color: '#FFACBF' }}>{batchRunner.currentTestName}</span>
-          </div>
-          {/* Current test progress */}
-          <div className="mt-2">
-            <div className="flex justify-between text-xs mb-1">
-              <span style={{ color: '#888' }}>{batchRunner.currentTestMessage}</span>
-              <span className="font-mono text-xs" style={{ color: '#FDFDFB' }}>
-                {Math.round(batchRunner.currentTestProgress * 100)}%
-              </span>
-            </div>
-            <div
-              className="w-full h-1.5 rounded-full overflow-hidden"
-              style={{ backgroundColor: '#444' }}
-            >
-              <div
-                className="h-1.5 rounded-full transition-all duration-150"
-                style={{
-                  width: `${Math.min(batchRunner.currentTestProgress * 100, 100)}%`,
-                  backgroundColor: '#B39DFF',
-                }}
-              />
-            </div>
-          </div>
         </div>
       )}
 
