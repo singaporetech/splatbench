@@ -8,6 +8,17 @@ html, body {
   font-family: 'Arvo', 'Helvetica Neue', Helvetica, Arial, serif;
 }
 
+/* Responsive viewer pane divider: bottom border on mobile, right border on desktop */
+.viewer-a-pane {
+  border-bottom: 1px solid #555;
+}
+@media (min-width: 768px) {
+  .viewer-a-pane {
+    border-bottom: none;
+    border-right: 1px solid #555;
+  }
+}
+
 /* Hide any default UI elements from gaussian-splats-3d library */
 .gs-container-message,
 .loadingSpinner,

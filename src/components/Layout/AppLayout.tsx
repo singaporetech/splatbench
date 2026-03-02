@@ -389,10 +389,10 @@ export function AppLayout() {
       />
 
       {/* Header */}
-      <header className="px-6 py-4 flex items-center justify-between shadow-lg" style={{ backgroundColor: '#3E3E3E', borderBottom: '1px solid #555', fontFamily: 'Arvo, serif' }}>
+      <header className="px-4 py-3 md:px-6 md:py-4 flex items-center justify-between shadow-lg" style={{ backgroundColor: '#3E3E3E', borderBottom: '1px solid #555', fontFamily: 'Arvo, serif' }}>
         <div>
-          <h1 className="text-3xl tracking-tight" style={{ color: '#B39DFF', fontFamily: 'Arvo, serif' }}>SplatBench</h1>
-          <p className="text-xs mt-1" style={{ color: '#FFACBF', fontFamily: 'Arvo, serif' }}>3D Gaussian Splatting Benchmark</p>
+          <h1 className="text-xl md:text-3xl tracking-tight" style={{ color: '#B39DFF', fontFamily: 'Arvo, serif' }}>SplatBench</h1>
+          <p className="text-xs mt-1 hidden md:block" style={{ color: '#FFACBF', fontFamily: 'Arvo, serif' }}>3D Gaussian Splatting Benchmark</p>
         </div>
         <div className="flex items-center gap-4">
           {/* Keyboard shortcuts hint */}
@@ -416,11 +416,11 @@ export function AppLayout() {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Split Viewer Area */}
-        <div className="flex-1 flex relative">
+        <div className="flex-1 flex flex-col md:flex-row relative">
           {/* Splat A */}
-          <div className="flex-1 relative" style={{ borderRight: '1px solid #555' }}>
+          <div className="flex-1 relative min-h-0 viewer-a-pane">
             {/* File info top-left */}
             <div className="absolute top-4 left-4 z-20">
               <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
@@ -475,7 +475,7 @@ export function AppLayout() {
           </div>
 
           {/* Splat B */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-h-0">
             {/* File info top-left */}
             <div className="absolute top-4 left-4 z-20">
               <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
@@ -599,7 +599,7 @@ export function AppLayout() {
         </div>
 
         {/* Right Panel - Tabbed Interface */}
-        <div className="w-80 flex flex-col" style={{ borderLeft: '1px solid #444' }}>
+        <div className="w-full md:w-80 flex flex-col max-h-[40vh] md:max-h-none border-t md:border-t-0 md:border-l border-gray-600" style={{ borderColor: '#444' }}>
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-600" style={{ backgroundColor: '#3E3E3E' }}>
             {(['metrics', 'tests'] as const).map((tab) => (
