@@ -199,7 +199,6 @@ function TestQueueProgress({
   const currentTest = isRunning ? Math.min(completed + 1, total) : completed;
   const fraction = completed / total;
   const isComplete = fraction >= 0.999;
-  const displayPercent = isComplete ? 100 : Math.round(fraction * 100);
   const barWidth = isComplete ? 100 : Math.min(fraction * 100, 100);
   return (
     <div className="mb-4">
