@@ -321,52 +321,67 @@ export function BatchTestPanel({
             borderBottom: '1px solid #44444480',
           }}
         >
-          <div className="flex justify-between text-xs mb-1">
-            <span style={{ color: '#FFACBF' }}>
-              Processing pair {batchRunner.currentPairIndex + 1}/{batchRunner.totalPairs}
-            </span>
-            <span className="font-mono" style={{ color: '#FDFDFB' }}>
-              {Math.round(((batchRunner.currentPairIndex) / batchRunner.totalPairs) * 100)}%
-            </span>
-          </div>
-          <div
-            className="w-full h-2 rounded-full overflow-hidden mb-2"
-            style={{ backgroundColor: '#555' }}
-          >
-            <div
-              className="h-2 rounded-full transition-all duration-300"
-              style={{
-                width: `${Math.min((batchRunner.currentPairIndex / batchRunner.totalPairs) * 100, 100)}%`,
-                backgroundColor: '#BEFF74',
-              }}
-            />
-          </div>
-          <div className="text-xs" style={{ color: '#888' }}>
-            <span style={{ color: '#B39DFF' }}>{batchRunner.currentPairName}</span>
-            {' / '}
-            <span style={{ color: '#FFACBF' }}>{batchRunner.currentTestName}</span>
-          </div>
-          {/* Current test progress */}
-          <div className="mt-2">
-            <div className="flex justify-between text-xs mb-1">
-              <span style={{ color: '#888' }}>{batchRunner.currentTestMessage}</span>
-              <span className="font-mono text-xs" style={{ color: '#FDFDFB' }}>
-                {Math.round(batchRunner.currentTestProgress * 100)}%
-              </span>
-            </div>
-            <div
-              className="w-full h-1.5 rounded-full overflow-hidden"
-              style={{ backgroundColor: '#444' }}
-            >
-              <div
-                className="h-1.5 rounded-full transition-all duration-150"
-                style={{
-                  width: `${Math.min(batchRunner.currentTestProgress * 100, 100)}%`,
-                  backgroundColor: '#B39DFF',
-                }}
-              />
-            </div>
-          </div>
+          {(() => {
+            const batchFraction = batchRunner.currentPairIndex / batchRunner.totalPairs;
+            const batchComplete = batchFraction >= 0.999;
+            const batchPercent = batchComplete ? 100 : Math.round(batchFraction * 100);
+            const batchBarWidth = batchComplete ? 100 : Math.min(batchFraction * 100, 100);
+            const testComplete = batchRunner.currentTestProgress >= 0.999;
+            const testPercent = testComplete ? 100 : Math.round(batchRunner.currentTestProgress * 100);
+            const testBarWidth = testComplete ? 100 : Math.min(batchRunner.currentTestProgress * 100, 100);
+            return (
+              <>
+                <div className="flex justify-between text-xs mb-1">
+                  <span style={{ color: '#FFACBF' }}>
+                    Processing pair {batchRunner.currentPairIndex + 1}/{batchRunner.totalPairs}
+                  </span>
+                  <span className="font-mono" style={{ color: '#FDFDFB' }}>
+                    {batchPercent}%
+                  </span>
+                </div>
+                <div
+                  className="w-full h-2 rounded-full overflow-hidden mb-2"
+                  style={{ backgroundColor: '#555' }}
+                >
+                  <div
+                    className="h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${batchBarWidth}%`,
+                      backgroundColor: '#BEFF74',
+                    }}
+                  />
+                </div>
+                <div className="text-xs" style={{ color: '#888' }}>
+                  <span style={{ color: '#B39DFF' }}>{batchRunner.currentPairName}</span>
+                  {' / '}
+                  <span style={{ color: '#FFACBF' }}>{batchRunner.currentTestName}</span>
+                </div>
+                {/* Current test progress */}
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span style={{ color: '#888' }}>
+                      {testComplete ? (batchRunner.currentTestMessage || 'Complete') : batchRunner.currentTestMessage}
+                    </span>
+                    <span className="font-mono text-xs" style={{ color: '#FDFDFB' }}>
+                      {testPercent}%
+                    </span>
+                  </div>
+                  <div
+                    className="w-full h-1.5 rounded-full overflow-hidden"
+                    style={{ backgroundColor: '#444' }}
+                  >
+                    <div
+                      className="h-1.5 rounded-full transition-all duration-150"
+                      style={{
+                        width: `${testBarWidth}%`,
+                        backgroundColor: '#B39DFF',
+                      }}
+                    />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

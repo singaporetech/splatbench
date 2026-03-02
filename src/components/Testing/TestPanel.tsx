@@ -141,6 +141,9 @@ function ProgressBar({
   phase?: string;
 }) {
   const isMetricsPhase = phase?.toLowerCase().includes('metric');
+  const isComplete = fraction >= 0.999;
+  const displayPercent = isComplete ? 100 : Math.round(fraction * 100);
+  const barWidth = isComplete ? 100 : Math.min(fraction * 100, 100);
   const barColor = isMetricsPhase ? '#FFACBF' : '#B39DFF';
   const phaseColor = isMetricsPhase ? '#FFACBF' : '#B39DFF';
 
@@ -155,9 +158,11 @@ function ProgressBar({
         </div>
       )}
       <div className="flex justify-between text-xs mb-1">
-        <span style={{ color: '#FFACBF' }}>{message}</span>
+        <span style={{ color: '#FFACBF' }}>
+          {isComplete ? (message || 'Complete') : message}
+        </span>
         <span className="font-mono" style={{ color: '#FDFDFB' }}>
-          {Math.round(fraction * 100)}%
+          {displayPercent}%
         </span>
       </div>
       <div
@@ -167,9 +172,9 @@ function ProgressBar({
         <div
           className="h-1.5 rounded-full transition-all duration-150"
           style={{
-            width: `${Math.min(fraction * 100, 100)}%`,
+            width: `${barWidth}%`,
             backgroundColor: barColor,
-            animation: isMetricsPhase && fraction < 1 ? 'pulse 1.5s ease-in-out infinite' : 'none',
+            animation: isMetricsPhase && !isComplete ? 'pulse 1.5s ease-in-out infinite' : 'none',
           }}
         />
       </div>
@@ -193,16 +198,21 @@ function TestQueueProgress({
   // After completion, show final counts
   const currentTest = isRunning ? Math.min(completed + 1, total) : completed;
   const fraction = completed / total;
+  const isComplete = fraction >= 0.999;
+  const displayPercent = isComplete ? 100 : Math.round(fraction * 100);
+  const barWidth = isComplete ? 100 : Math.min(fraction * 100, 100);
   return (
     <div className="mb-4">
       <div className="flex justify-between text-xs mb-1">
         <span style={{ color: '#FFACBF' }}>
-          {isRunning
-            ? `Running test ${currentTest} of ${total}`
-            : `${completed} of ${total} complete`}
+          {isComplete && !isRunning
+            ? `All ${total} tests complete`
+            : isRunning
+              ? `Running test ${currentTest} of ${total}`
+              : `${completed} of ${total} complete`}
         </span>
         <span className="font-mono" style={{ color: '#FDFDFB' }}>
-          {completed} / {total}
+          {isComplete ? `${total} / ${total}` : `${completed} / ${total}`}
         </span>
       </div>
       <div
@@ -212,7 +222,7 @@ function TestQueueProgress({
         <div
           className="h-2 rounded-full transition-all duration-300"
           style={{
-            width: `${Math.min(fraction * 100, 100)}%`,
+            width: `${barWidth}%`,
             backgroundColor: '#BEFF74',
           }}
         />
