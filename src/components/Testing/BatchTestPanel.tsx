@@ -228,6 +228,16 @@ function BatchResultCard({ result }: { result: BatchPairResult }) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
+// Detect webkitdirectory support (unsupported on iOS Safari)
+const supportsWebkitDirectory = (() => {
+  try {
+    const input = document.createElement('input');
+    return 'webkitdirectory' in input;
+  } catch {
+    return false;
+  }
+})();
+
 export function BatchTestPanel({
   onLoadRef,
   onLoadTest,
@@ -277,16 +287,27 @@ export function BatchTestPanel({
 
   return (
     <div>
-      {/* Hidden folder input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        /* @ts-expect-error webkitdirectory is non-standard but widely supported */
-        webkitdirectory="true"
-        multiple
-        className="hidden"
-        onChange={handleInputChange}
-      />
+      {/* Hidden file input -- folder mode on desktop, multi-file on iOS */}
+      {supportsWebkitDirectory ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          /* @ts-expect-error webkitdirectory is non-standard but widely supported */
+          webkitdirectory="true"
+          multiple
+          className="hidden"
+          onChange={handleInputChange}
+        />
+      ) : (
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".ply,.splat,.ksplat,.spz"
+          className="hidden"
+          onChange={handleInputChange}
+        />
+      )}
 
       {/* Sticky batch progress -- visible only when running */}
       {isRunning && (
@@ -369,7 +390,9 @@ export function BatchTestPanel({
           Batch File Naming
         </div>
         <div className="text-xs leading-relaxed" style={{ color: '#888' }}>
-          Place pairs of files in a folder using this convention:
+          {supportsWebkitDirectory
+            ? 'Place pairs of files in a folder using this convention:'
+            : 'Select paired files using this naming convention:'}
         </div>
         <div
           className="mt-2 p-2 rounded font-mono text-xs"
@@ -406,7 +429,9 @@ export function BatchTestPanel({
           border: '1px dashed #666',
         }}
       >
-        {folder.hasFolder ? 'Change Batch Folder' : 'Select Batch Folder'}
+        {folder.hasFolder
+          ? supportsWebkitDirectory ? 'Change Batch Folder' : 'Change Batch Files'
+          : supportsWebkitDirectory ? 'Select Batch Folder' : 'Select Batch Files'}
       </button>
 
       {/* Folder info */}
