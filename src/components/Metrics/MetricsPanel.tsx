@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { BenchmarkMetrics, ImageQualityMetrics } from '../../types';
 
 interface MetricsPanelProps {
@@ -382,13 +382,28 @@ interface MetricItemProps {
 
 function MetricItem({ label, value, color = '#FDFDFB', tooltip }: MetricItemProps) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Tap-outside-to-dismiss for touch devices
+  useEffect(() => {
+    if (!showTooltip) return;
+    const handleOutside = (e: Event) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowTooltip(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutside);
+    return () => document.removeEventListener('pointerdown', handleOutside);
+  }, [showTooltip]);
 
   return (
     <div
+      ref={containerRef}
       className="flex justify-between items-center py-2 relative"
-      style={{ borderBottom: '1px solid #555', fontFamily: 'Arvo, serif' }}
+      style={{ borderBottom: '1px solid #555', fontFamily: 'Arvo, serif', touchAction: 'manipulation' }}
       onMouseEnter={() => tooltip && setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
+      onClick={() => tooltip && setShowTooltip((v) => !v)}
     >
       <div className="flex items-center gap-1">
         <span className="text-sm font-medium" style={{ color: '#FFACBF' }}>{label}</span>
@@ -431,13 +446,28 @@ interface ComparisonMetricItemProps {
 
 function ComparisonMetricItem({ label, valueA, valueB, delta, deltaColor, tooltip }: ComparisonMetricItemProps) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Tap-outside-to-dismiss for touch devices
+  useEffect(() => {
+    if (!showTooltip) return;
+    const handleOutside = (e: Event) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowTooltip(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutside);
+    return () => document.removeEventListener('pointerdown', handleOutside);
+  }, [showTooltip]);
 
   return (
     <div
+      ref={containerRef}
       className="py-3 relative"
-      style={{ borderBottom: '1px solid #555', fontFamily: 'Arvo, serif' }}
+      style={{ borderBottom: '1px solid #555', fontFamily: 'Arvo, serif', touchAction: 'manipulation' }}
       onMouseEnter={() => tooltip && setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
+      onClick={() => tooltip && setShowTooltip((v) => !v)}
     >
       <div className="text-sm font-medium mb-2 flex items-center gap-1" style={{ color: '#FFACBF' }}>
         {label}

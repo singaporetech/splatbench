@@ -6,7 +6,7 @@
  * and runs all registered tests on each pair sequentially.
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { SparkViewerContext } from '../../types';
 import type { TestScene } from '../../lib/testing/types';
 import type { GSFile } from '../../types';
@@ -43,8 +43,20 @@ function InfoTooltip({ text }: { text: string }) {
     setShow(true);
   }, [updatePosition]);
 
+  // Tap-outside-to-dismiss for touch devices
+  useEffect(() => {
+    if (!show) return;
+    const handleOutside = (e: Event) => {
+      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        setShow(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutside);
+    return () => document.removeEventListener('pointerdown', handleOutside);
+  }, [show]);
+
   return (
-    <span ref={triggerRef} className="relative inline-flex items-center">
+    <span ref={triggerRef} className="relative inline-flex items-center" style={{ touchAction: 'manipulation' }}>
       <svg
         className="w-4 h-4 cursor-help"
         fill="none"
