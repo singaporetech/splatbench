@@ -48,6 +48,12 @@ export function AppLayout() {
   const metricsB = useMetrics();
   const imageQuality = useImageQuality();
 
+  // Detect touch-only devices (phones, tablets without a mouse)
+  const isTouchDevice = useMemo(
+    () => 'ontouchstart' in window && window.matchMedia('(hover: none)').matches,
+    [],
+  );
+
   // Detect scene names from filenames
   const sceneNameA = useMemo(() => detectSceneName(fileA?.name || ''), [fileA?.name]);
   const sceneNameB = useMemo(() => detectSceneName(fileB?.name || ''), [fileB?.name]);
@@ -535,9 +541,19 @@ export function AppLayout() {
               <div className="px-4 py-3 rounded-lg text-xs" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', color: '#FDFDFB', fontFamily: 'Arvo, serif' }}>
                 <div className="font-semibold mb-2" style={{ color: '#B39DFF' }}>Navigation Controls</div>
                 <div className="space-y-1">
-                  <div><span className="font-medium">Rotate</span> - Left-click + Drag</div>
-                  <div><span className="font-medium">Pan</span> - Right-click + Drag</div>
-                  <div><span className="font-medium">Dolly</span> - Scroll / Pinch</div>
+                  {isTouchDevice ? (
+                    <>
+                      <div><span className="font-medium">Rotate</span> - One finger drag</div>
+                      <div><span className="font-medium">Pan</span> - Two finger drag</div>
+                      <div><span className="font-medium">Dolly</span> - Pinch</div>
+                    </>
+                  ) : (
+                    <>
+                      <div><span className="font-medium">Rotate</span> - Left-click + Drag</div>
+                      <div><span className="font-medium">Pan</span> - Right-click + Drag</div>
+                      <div><span className="font-medium">Dolly</span> - Scroll / Pinch</div>
+                    </>
+                  )}
                 </div>
               </div>
               <CameraDistance context={contextA} />
