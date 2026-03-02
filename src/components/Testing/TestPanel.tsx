@@ -17,6 +17,7 @@ import type { TestScene, TestStatus } from '../../lib/testing/types';
 import { useTestRunner } from '../../hooks/useTestRunner';
 import type { TestRunState } from '../../hooks/useTestRunner';
 import { BatchTestPanel } from './BatchTestPanel';
+import { InfoTooltip } from '../UI/InfoTooltip';
 
 // Ensure built-in tests are registered
 import '../../lib/testing/trajectoryTests';
@@ -60,74 +61,7 @@ function StatusDot({ status }: { status: TestStatus }) {
   );
 }
 
-// ─── Info Tooltip (viewport-aware) ──────────────────────────────────────────
-
-function InfoTooltip({ text }: { text: string }) {
-  const [show, setShow] = useState(false);
-  const [flipLeft, setFlipLeft] = useState(false);
-  const triggerRef = useRef<HTMLSpanElement>(null);
-  const toggle = useCallback(() => setShow((v) => !v), []);
-
-  const updatePosition = useCallback(() => {
-    if (!triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    // Flip tooltip to the left when trigger is in the right half of viewport
-    setFlipLeft(rect.left > window.innerWidth / 2);
-  }, []);
-
-  const handleShow = useCallback(() => {
-    updatePosition();
-    setShow(true);
-  }, [updatePosition]);
-
-  // Tap-outside-to-dismiss for touch devices
-  useEffect(() => {
-    if (!show) return;
-    const handleOutside = (e: Event) => {
-      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
-        setShow(false);
-      }
-    };
-    document.addEventListener('pointerdown', handleOutside);
-    return () => document.removeEventListener('pointerdown', handleOutside);
-  }, [show]);
-
-  return (
-    <span ref={triggerRef} className="relative inline-flex items-center" style={{ touchAction: 'manipulation' }}>
-      <svg
-        className="w-4 h-4 cursor-help"
-        fill="none"
-        stroke="#888"
-        viewBox="0 0 24 24"
-        onMouseEnter={handleShow}
-        onMouseLeave={() => setShow(false)}
-        onClick={toggle}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-      {show && (
-        <div
-          className="absolute top-0 p-3 rounded-lg shadow-lg text-xs leading-relaxed"
-          style={{
-            zIndex: 9999,
-            width: '240px',
-            backgroundColor: '#2D2D2D',
-            border: '1px solid #555',
-            color: '#FDFDFB',
-            ...(flipLeft ? { right: '24px' } : { left: '20px' }),
-          }}
-        >
-          {text}
-        </div>
-      )}
-    </span>
-  );
-}
+// InfoTooltip imported from ../UI/InfoTooltip
 
 // ─── Progress Bar ───────────────────────────────────────────────────────────
 

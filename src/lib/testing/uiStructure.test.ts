@@ -24,6 +24,11 @@ function readComponent(relativePath: string): string {
   return readFileSync(fullPath, 'utf-8');
 }
 
+function readUIComponent(relativePath: string): string {
+  const fullPath = resolve(__dirname, '../../components/UI', relativePath);
+  return readFileSync(fullPath, 'utf-8');
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 describe('TestPanel UI Structure', () => {
@@ -104,33 +109,40 @@ describe('TestPanel UI Structure', () => {
   // ─── 4. Viewport-Aware Tooltip Positioning ────────────────────────────
 
   describe('viewport-aware tooltip positioning', () => {
+    // InfoTooltip was extracted to a shared component in UI/InfoTooltip.tsx.
+    // These tests verify the shared component's implementation.
+    const infoTooltipSource = readUIComponent('InfoTooltip.tsx');
+
     it('InfoTooltip uses a ref for position detection', () => {
-      expect(testPanelSource).toContain('triggerRef');
-      expect(testPanelSource).toContain('useRef');
+      expect(infoTooltipSource).toContain('triggerRef');
+      expect(infoTooltipSource).toContain('useRef');
     });
 
     it('computes viewport position using getBoundingClientRect', () => {
-      expect(testPanelSource).toContain('getBoundingClientRect');
+      expect(infoTooltipSource).toContain('getBoundingClientRect');
     });
 
     it('compares element position against viewport width', () => {
-      expect(testPanelSource).toContain('window.innerWidth');
+      expect(infoTooltipSource).toContain('window.innerWidth');
     });
 
     it('supports flipping tooltip to the left when near right edge', () => {
-      expect(testPanelSource).toContain('flipLeft');
+      expect(infoTooltipSource).toContain('flipLeft');
     });
 
     it('positions tooltip conditionally left or right', () => {
       // When flipped left: right: '24px', otherwise left: '20px'
-      expect(testPanelSource).toContain("right: '24px'");
-      expect(testPanelSource).toContain("left: '20px'");
+      expect(infoTooltipSource).toContain("right: '24px'");
+      expect(infoTooltipSource).toContain("left: '20px'");
     });
 
-    it('recalculates position on mouse enter', () => {
-      expect(testPanelSource).toContain('onMouseEnter');
-      expect(testPanelSource).toContain('handleShow');
-      expect(testPanelSource).toContain('updatePosition');
+    it('uses pointerType to distinguish mouse from touch', () => {
+      expect(infoTooltipSource).toContain('pointerType');
+      expect(infoTooltipSource).toContain("'mouse'");
+    });
+
+    it('TestPanel imports InfoTooltip from shared component', () => {
+      expect(testPanelSource).toContain("from '../UI/InfoTooltip'");
     });
   });
 });
@@ -147,8 +159,6 @@ describe('BatchTestPanel UI Structure', () => {
 
   it('also uses viewport-aware InfoTooltip', () => {
     expect(batchPanelSource).toContain('InfoTooltip');
-    expect(batchPanelSource).toContain('flipLeft');
-    expect(batchPanelSource).toContain('getBoundingClientRect');
-    expect(batchPanelSource).toContain('window.innerWidth');
+    expect(batchPanelSource).toContain("from '../UI/InfoTooltip'");
   });
 });

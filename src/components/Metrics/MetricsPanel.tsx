@@ -401,8 +401,8 @@ function MetricItem({ label, value, color = '#FDFDFB', tooltip }: MetricItemProp
       ref={containerRef}
       className="flex justify-between items-center py-2 relative"
       style={{ borderBottom: '1px solid #555', fontFamily: 'Arvo, serif', touchAction: 'manipulation' }}
-      onMouseEnter={() => tooltip && setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
+      onPointerEnter={(e: React.PointerEvent) => { if (e.pointerType === 'mouse' && tooltip) setShowTooltip(true); }}
+      onPointerLeave={(e: React.PointerEvent) => { if (e.pointerType === 'mouse') setShowTooltip(false); }}
       onClick={() => tooltip && setShowTooltip((v) => !v)}
     >
       <div className="flex items-center gap-1">
@@ -465,8 +465,8 @@ function ComparisonMetricItem({ label, valueA, valueB, delta, deltaColor, toolti
       ref={containerRef}
       className="py-3 relative"
       style={{ borderBottom: '1px solid #555', fontFamily: 'Arvo, serif', touchAction: 'manipulation' }}
-      onMouseEnter={() => tooltip && setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
+      onPointerEnter={(e: React.PointerEvent) => { if (e.pointerType === 'mouse' && tooltip) setShowTooltip(true); }}
+      onPointerLeave={(e: React.PointerEvent) => { if (e.pointerType === 'mouse') setShowTooltip(false); }}
       onClick={() => tooltip && setShowTooltip((v) => !v)}
     >
       <div className="text-sm font-medium mb-2 flex items-center gap-1" style={{ color: '#FFACBF' }}>
