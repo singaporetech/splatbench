@@ -30,7 +30,7 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
       antialias: false, // Spark recommends false for performance
       preserveDrawingBuffer: true, // Required for quality metrics capture
     });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
