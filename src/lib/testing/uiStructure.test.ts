@@ -15,17 +15,20 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function readComponent(relativePath: string): string {
-  const fullPath = resolve(__dirname, '../../components/Testing', relativePath);
+  const fullPath = resolve(TEST_DIR, '../../components/Testing', relativePath);
   return readFileSync(fullPath, 'utf-8');
 }
 
 function readUIComponent(relativePath: string): string {
-  const fullPath = resolve(__dirname, '../../components/UI', relativePath);
+  const fullPath = resolve(TEST_DIR, '../../components/UI', relativePath);
   return readFileSync(fullPath, 'utf-8');
 }
 
@@ -160,5 +163,19 @@ describe('BatchTestPanel UI Structure', () => {
   it('also uses viewport-aware InfoTooltip', () => {
     expect(batchPanelSource).toContain('InfoTooltip');
     expect(batchPanelSource).toContain("from '../UI/InfoTooltip'");
+  });
+
+  it('forces progress bar fill to match displayed 100 percent', () => {
+    expect(batchPanelSource).toContain('Math.round(testRawPercent)');
+    expect(batchPanelSource).toContain('testBarWidth = testComplete ? 100 : testRawPercent');
+  });
+});
+
+describe('Current-model progress display', () => {
+  const testPanelSource = readComponent('TestPanel.tsx');
+
+  it('forces active progress bars to fill fully when rounded display reaches 100 percent', () => {
+    expect(testPanelSource).toContain('Math.round(rawPercent)');
+    expect(testPanelSource).toContain('barWidth = isComplete ? 100 : rawPercent');
   });
 });

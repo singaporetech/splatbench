@@ -10,7 +10,7 @@
  *   pairs, and run all tests on each pair sequentially.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import type { SparkViewerContext } from '../../types';
 import type { GSFile } from '../../types';
 import type { TestScene, TestStatus } from '../../lib/testing/types';
@@ -75,9 +75,10 @@ function ProgressBar({
   phase?: string;
 }) {
   const isMetricsPhase = phase?.toLowerCase().includes('metric');
-  const isComplete = fraction >= 0.999;
-  const displayPercent = isComplete ? 100 : Math.round(fraction * 100);
-  const barWidth = isComplete ? 100 : Math.min(fraction * 100, 100);
+  const rawPercent = Math.max(0, Math.min(fraction * 100, 100));
+  const displayPercent = Math.round(rawPercent);
+  const isComplete = displayPercent >= 100;
+  const barWidth = isComplete ? 100 : rawPercent;
   const barColor = isMetricsPhase ? '#FFACBF' : '#B39DFF';
   const phaseColor = isMetricsPhase ? '#FFACBF' : '#B39DFF';
 
@@ -132,8 +133,9 @@ function TestQueueProgress({
   // After completion, show final counts
   const currentTest = isRunning ? Math.min(completed + 1, total) : completed;
   const fraction = completed / total;
-  const isComplete = fraction >= 0.999;
-  const barWidth = isComplete ? 100 : Math.min(fraction * 100, 100);
+  const rawPercent = Math.max(0, Math.min(fraction * 100, 100));
+  const isComplete = Math.round(rawPercent) >= 100;
+  const barWidth = isComplete ? 100 : rawPercent;
   return (
     <div className="mb-4">
       <div className="flex justify-between text-xs mb-1">

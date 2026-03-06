@@ -6,7 +6,7 @@
  * and runs all registered tests on each pair sequentially.
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback } from 'react';
 import type { SparkViewerContext } from '../../types';
 import type { TestScene } from '../../lib/testing/types';
 import type { GSFile } from '../../types';
@@ -258,12 +258,14 @@ export function BatchTestPanel({
         >
           {(() => {
             const batchFraction = batchRunner.currentPairIndex / batchRunner.totalPairs;
-            const batchComplete = batchFraction >= 0.999;
-            const batchPercent = batchComplete ? 100 : Math.round(batchFraction * 100);
-            const batchBarWidth = batchComplete ? 100 : Math.min(batchFraction * 100, 100);
-            const testComplete = batchRunner.currentTestProgress >= 0.999;
-            const testPercent = testComplete ? 100 : Math.round(batchRunner.currentTestProgress * 100);
-            const testBarWidth = testComplete ? 100 : Math.min(batchRunner.currentTestProgress * 100, 100);
+            const batchRawPercent = Math.max(0, Math.min(batchFraction * 100, 100));
+            const batchPercent = Math.round(batchRawPercent);
+            const batchComplete = batchPercent >= 100;
+            const batchBarWidth = batchComplete ? 100 : batchRawPercent;
+            const testRawPercent = Math.max(0, Math.min(batchRunner.currentTestProgress * 100, 100));
+            const testPercent = Math.round(testRawPercent);
+            const testComplete = testPercent >= 100;
+            const testBarWidth = testComplete ? 100 : testRawPercent;
             return (
               <>
                 <div className="flex justify-between text-xs mb-1">
