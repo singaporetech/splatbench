@@ -129,14 +129,21 @@ describe('TestPanel UI Structure', () => {
       expect(infoTooltipSource).toContain('window.innerWidth');
     });
 
-    it('supports flipping tooltip to the left when near right edge', () => {
-      expect(infoTooltipSource).toContain('flipLeft');
+    it('measures the tooltip box before clamping to the viewport', () => {
+      expect(infoTooltipSource).toContain('tooltipRef');
+      expect(infoTooltipSource).toContain('offsetWidth');
+      expect(infoTooltipSource).toContain('offsetHeight');
     });
 
-    it('positions tooltip conditionally left or right', () => {
-      // When flipped left: right: '24px', otherwise left: '20px'
-      expect(infoTooltipSource).toContain("right: '24px'");
-      expect(infoTooltipSource).toContain("left: '20px'");
+    it('clamps tooltip position within the viewport edges', () => {
+      expect(infoTooltipSource).toContain('Math.min(Math.max(centeredLeft');
+      expect(infoTooltipSource).toContain('position: \'fixed\'');
+      expect(infoTooltipSource).toContain('maxWidth: `calc(100vw -');
+    });
+
+    it('repositions on resize and scroll while open', () => {
+      expect(infoTooltipSource).toContain("window.addEventListener('resize', updatePosition)");
+      expect(infoTooltipSource).toContain("window.addEventListener('scroll', updatePosition, true)");
     });
 
     it('uses pointerType to distinguish mouse from touch', () => {
