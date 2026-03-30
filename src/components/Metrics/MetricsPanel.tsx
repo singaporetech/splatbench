@@ -62,13 +62,13 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
 
     return (
       <div className="w-full h-full overflow-y-auto" style={{ backgroundColor: '#3E3E3E', color: '#FDFDFB', fontFamily: 'Arvo, serif' }}>
-        <div className="px-10 py-8">
-          <h2 className="text-xl mb-8" style={{ color: '#B39DFF' }}>
+        <div className="px-4 py-4 md:px-10 md:py-8">
+          <h2 className="text-lg md:text-xl mb-4 md:mb-8" style={{ color: '#B39DFF' }}>
             Splat {side} Metrics
           </h2>
 
           {/* Basic Performance */}
-          <div className="mb-8">
+          <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Basic</h3>
             <div className="space-y-2">
               <MetricItem
@@ -96,7 +96,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
 
         {/* Stability Metrics */}
         {metrics.frameTimeVariance > 0 && (
-          <div className="mb-8">
+          <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Stability</h3>
             <div className="space-y-2">
               <MetricItem
@@ -124,7 +124,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
 
         {/* Percentiles */}
         {metrics.frameTimeP50 > 0 && (
-          <div className="mb-8">
+          <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Percentiles</h3>
             <div className="space-y-2">
               <MetricItem
@@ -150,7 +150,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
 
         {/* File Info */}
         {(metrics.loadTime > 0 || metrics.splatCount > 0) && (
-          <div className="mb-8">
+          <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>File Info</h3>
             <div className="space-y-2">
               {metrics.loadTime > 0 && (
@@ -201,14 +201,14 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
   // Comparison view when both files are loaded
   return (
     <div className="w-full h-full overflow-y-auto overflow-x-visible" style={{ backgroundColor: '#3E3E3E', color: '#FDFDFB', fontFamily: 'Arvo, serif' }}>
-      <div className="px-10 py-8">
-        <h2 className="text-xl mb-8" style={{ color: '#B39DFF' }}>
+      <div className="px-4 py-4 md:px-10 md:py-8">
+        <h2 className="text-lg md:text-xl mb-4 md:mb-8" style={{ color: '#B39DFF' }}>
           Comparison
         </h2>
 
         {/* Quality Comparison (PSNR/SSIM) - MOVED TO TOP */}
         {qualityMetrics && (qualityMetrics.psnr !== null || qualityMetrics.ssim !== null || qualityMetrics.error) && (
-          <div className="mb-8">
+          <div className="mb-4 md:mb-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#FFACBF' }}>Quality Comparison</h3>
               {onCompareQuality && (
@@ -268,7 +268,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
         )}
 
         {/* Basic Performance Comparison */}
-        <div className="mb-8">
+        <div className="mb-4 md:mb-8">
           <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Basic</h3>
           <div className="space-y-4">
             <ComparisonMetricItem
@@ -304,7 +304,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
 
         {/* Stability Comparison */}
         {(metricsA.frameTimeVariance > 0 || metricsB.frameTimeVariance > 0) && (
-          <div className="mb-8">
+          <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Stability</h3>
             <div className="space-y-4">
               <ComparisonMetricItem
@@ -330,7 +330,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
 
         {/* File Info Comparison */}
         {(metricsA.splatCount > 0 || metricsB.splatCount > 0) && (
-          <div className="mb-8">
+          <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>File Info</h3>
             <div className="space-y-4">
               {(metricsA.loadTime > 0 || metricsB.loadTime > 0) && (

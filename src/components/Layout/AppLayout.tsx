@@ -40,6 +40,7 @@ export function AppLayout() {
   const [contextB, setContextB] = useState<SparkViewerContext | null>(null);
   const [cameraSyncEnabled] = useState(true);
   const [activeTab, setActiveTab] = useState<'metrics' | 'tests'>('metrics');
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [showCameraPresets, setShowCameraPresets] = useState(true);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
@@ -287,6 +288,16 @@ export function AppLayout() {
     metricsB.recordFrame(deltaTime);
   };
 
+  const handleTabClick = useCallback((tab: 'metrics' | 'tests') => {
+    if (tab === activeTab) {
+      // Toggle panel open/closed on mobile when clicking the active tab
+      setMobilePanelOpen(prev => !prev);
+    } else {
+      setActiveTab(tab);
+      setMobilePanelOpen(true);
+    }
+  }, [activeTab]);
+
   const handleChangeA = () => {
     document.getElementById('file-input-A')?.click();
   };
@@ -395,9 +406,9 @@ export function AppLayout() {
       />
 
       {/* Header */}
-      <header className="px-4 py-3 md:px-6 md:py-4 flex items-center justify-between shadow-lg" style={{ backgroundColor: '#3E3E3E', borderBottom: '1px solid #555', fontFamily: 'Arvo, serif' }}>
+      <header className="px-3 py-2 md:px-6 md:py-4 flex items-center justify-between shadow-lg" style={{ backgroundColor: '#3E3E3E', borderBottom: '1px solid #555', fontFamily: 'Arvo, serif' }}>
         <div>
-          <h1 className="text-xl md:text-3xl tracking-tight" style={{ color: '#B39DFF', fontFamily: 'Arvo, serif' }}>SplatBench</h1>
+          <h1 className="text-lg md:text-3xl tracking-tight" style={{ color: '#B39DFF', fontFamily: 'Arvo, serif' }}>SplatBench</h1>
           <p className="text-xs mt-1 hidden md:block" style={{ color: '#FFACBF', fontFamily: 'Arvo, serif' }}>3D Gaussian Splatting Benchmark</p>
         </div>
         <div className="flex items-center gap-4">
@@ -412,10 +423,10 @@ export function AppLayout() {
           {(fileA || fileB) && (
             <button
               onClick={handleClearAll}
-              className="px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+              className="px-3 py-1.5 md:px-4 md:py-2 text-white text-xs md:text-sm font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
               style={{ backgroundColor: '#B39DFF', fontFamily: 'Arvo, serif' }}
             >
-              Clear All
+              Clear
             </button>
           )}
         </div>
@@ -428,25 +439,25 @@ export function AppLayout() {
           {/* Splat A */}
           <div className="flex-1 relative min-h-0 viewer-a-pane">
             {/* File info top-left */}
-            <div className="absolute top-4 left-4 z-20">
-              <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
-                <div className="text-sm font-semibold mb-0.5" style={{ color: '#B39DFF' }}>Reference Model</div>
+            <div className="absolute top-2 left-2 md:top-4 md:left-4 z-20">
+              <div className="px-2 py-1.5 md:px-3 md:py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
+                <div className="text-xs md:text-sm font-semibold mb-0.5" style={{ color: '#B39DFF' }}>Reference</div>
                 {fileA && (
-                  <div className="text-sm truncate max-w-[200px]" title={fileA.name} style={{ color: '#FDFDFB' }}>
+                  <div className="text-xs md:text-sm truncate max-w-[140px] md:max-w-[200px]" title={fileA.name} style={{ color: '#FDFDFB' }}>
                     {fileA.name}
                   </div>
                 )}
                 {sceneNameA && (
-                  <div className="text-xs text-gray-400 mt-0.5">Scene: {sceneNameA}</div>
+                  <div className="text-xs text-gray-400 mt-0.5 hidden md:block">Scene: {sceneNameA}</div>
                 )}
               </div>
             </div>
             {/* Change button top-right */}
             {fileA && (
-              <div className="absolute top-4 right-4 z-20">
+              <div className="absolute top-2 right-2 md:top-4 md:right-4 z-20">
                 <button
                   onClick={handleChangeA}
-                  className="px-3 py-2 text-white text-xs font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
+                  className="px-2 py-1.5 md:px-3 md:py-2 text-white text-xs font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
                   style={{ backgroundColor: '#FF575F', fontFamily: 'Arvo, serif' }}
                   title="Change file for Splat A"
                 >
@@ -454,18 +465,18 @@ export function AppLayout() {
                 </button>
               </div>
             )}
-            {/* Camera Presets for A */}
+            {/* Camera Presets for A (hidden on mobile to save space) */}
             {fileA && showCameraPresets && (
-              <div className="absolute top-24 left-4 z-20">
-                <CameraPresetPanel 
-                  viewerContext={contextA} 
+              <div className="absolute top-24 left-4 z-20 hidden md:block">
+                <CameraPresetPanel
+                  viewerContext={contextA}
                   sceneName={sceneNameA || undefined}
                   onPresetApplied={(preset) => console.log('[Preset] Applied:', preset.name)}
                 />
               </div>
             )}
             {!fileA ? (
-              <div className="absolute inset-0 flex items-center justify-center p-8">
+              <div className="absolute inset-0 flex items-center justify-center p-3 md:p-8">
                 <div className="max-w-lg w-full">
                   <FileDropzone onFileSelect={handleFileSelectA} side="A" />
                 </div>
@@ -483,25 +494,25 @@ export function AppLayout() {
           {/* Splat B */}
           <div className="flex-1 relative min-h-0">
             {/* File info top-left */}
-            <div className="absolute top-4 left-4 z-20">
-              <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
-                <div className="text-sm font-semibold mb-0.5" style={{ color: '#FFACBF' }}>Test Model</div>
+            <div className="absolute top-2 left-2 md:top-4 md:left-4 z-20">
+              <div className="px-2 py-1.5 md:px-3 md:py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
+                <div className="text-xs md:text-sm font-semibold mb-0.5" style={{ color: '#FFACBF' }}>Test</div>
                 {fileB && (
-                  <div className="text-sm truncate max-w-[200px]" title={fileB.name} style={{ color: '#FDFDFB' }}>
+                  <div className="text-xs md:text-sm truncate max-w-[140px] md:max-w-[200px]" title={fileB.name} style={{ color: '#FDFDFB' }}>
                     {fileB.name}
                   </div>
                 )}
                 {sceneNameB && (
-                  <div className="text-xs text-gray-400 mt-0.5">Scene: {sceneNameB}</div>
+                  <div className="text-xs text-gray-400 mt-0.5 hidden md:block">Scene: {sceneNameB}</div>
                 )}
               </div>
             </div>
             {/* Change button top-right */}
             {fileB && (
-              <div className="absolute top-4 right-4 z-20">
+              <div className="absolute top-2 right-2 md:top-4 md:right-4 z-20">
                 <button
                   onClick={handleChangeB}
-                  className="px-3 py-2 text-white text-xs font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
+                  className="px-2 py-1.5 md:px-3 md:py-2 text-white text-xs font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
                   style={{ backgroundColor: '#FF575F', fontFamily: 'Arvo, serif' }}
                   title="Change file for Splat B"
                 >
@@ -509,18 +520,18 @@ export function AppLayout() {
                 </button>
               </div>
             )}
-            {/* Camera Presets for B */}
+            {/* Camera Presets for B (hidden on mobile to save space) */}
             {fileB && showCameraPresets && (
-              <div className="absolute top-24 left-4 z-20">
-                <CameraPresetPanel 
-                  viewerContext={contextB} 
+              <div className="absolute top-24 left-4 z-20 hidden md:block">
+                <CameraPresetPanel
+                  viewerContext={contextB}
                   sceneName={sceneNameB || undefined}
                   onPresetApplied={(preset) => console.log('[Preset] Applied to B:', preset.name)}
                 />
               </div>
             )}
             {!fileB ? (
-              <div className="absolute inset-0 flex items-center justify-center p-8">
+              <div className="absolute inset-0 flex items-center justify-center p-3 md:p-8">
                 <div className="max-w-lg w-full">
                   <FileDropzone onFileSelect={handleFileSelectB} side="B" />
                 </div>
@@ -535,10 +546,10 @@ export function AppLayout() {
             )}
           </div>
 
-          {/* Navigation Controls */}
+          {/* Navigation Controls (legend hidden on mobile) */}
           {(fileA || fileB) && (
-            <div className="absolute bottom-4 left-4 space-y-3" style={{ zIndex: 30 }}>
-              <div className="px-4 py-3 rounded-lg text-xs" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', color: '#FDFDFB', fontFamily: 'Arvo, serif' }}>
+            <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 space-y-3" style={{ zIndex: 30 }}>
+              <div className="px-4 py-3 rounded-lg text-xs hidden md:block" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', color: '#FDFDFB', fontFamily: 'Arvo, serif' }}>
                 <div className="font-semibold mb-2" style={{ color: '#B39DFF' }}>Navigation Controls</div>
                 <div className="space-y-1">
                   {isTouchDevice ? (
@@ -562,7 +573,7 @@ export function AppLayout() {
 
           {/* Screenshot Button - Independent of tabs */}
           {(fileA && fileB) && (
-            <div className="absolute bottom-4 right-4" style={{ zIndex: 30 }}>
+            <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4" style={{ zIndex: 30 }}>
               <div className="flex flex-col items-end gap-2">
                 {screenshotStatus && (
                   <div 
@@ -579,10 +590,10 @@ export function AppLayout() {
                 <button
                   onClick={handleCaptureScreenshot}
                   disabled={isCapturingScreenshot || !contextA || !contextB}
-                  className="px-4 py-3 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  style={{ 
-                    backgroundColor: isCapturingScreenshot ? '#6B7280' : '#B39DFF', 
-                    fontFamily: 'Arvo, serif' 
+                  className="px-3 py-2 md:px-4 md:py-3 text-white text-xs md:text-sm font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  style={{
+                    backgroundColor: isCapturingScreenshot ? '#6B7280' : '#B39DFF',
+                    fontFamily: 'Arvo, serif'
                   }}
                   title="Capture side-by-side screenshot (C)"
                 >
@@ -590,15 +601,15 @@ export function AppLayout() {
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                     <circle cx="12" cy="13" r="4"/>
                   </svg>
-                  {isCapturingScreenshot ? 'Capturing...' : 'Screenshot'}
+                  <span className="hidden md:inline">{isCapturingScreenshot ? 'Capturing...' : 'Screenshot'}</span>
                 </button>
                 <button
                   onClick={handleExportCSV}
                   disabled={!contextA || !contextB}
-                  className="px-4 py-3 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  style={{ 
-                    backgroundColor: '#FFACBF', 
-                    fontFamily: 'Arvo, serif' 
+                  className="px-3 py-2 md:px-4 md:py-3 text-white text-xs md:text-sm font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  style={{
+                    backgroundColor: '#FFACBF',
+                    fontFamily: 'Arvo, serif'
                   }}
                   title="Export metrics to CSV (E)"
                 >
@@ -614,14 +625,19 @@ export function AppLayout() {
           )}
         </div>
 
-        {/* Right Panel - Tabbed Interface */}
-        <div className="w-full md:w-80 flex flex-col max-h-[40vh] md:max-h-none border-t md:border-t-0 md:border-l border-gray-600" style={{ borderColor: '#444' }}>
+        {/* Right Panel - Tabbed Interface (collapsible on mobile) */}
+        <div
+          className={`w-full md:w-80 flex flex-col border-t md:border-t-0 md:border-l border-gray-600 ${
+            mobilePanelOpen ? 'max-h-[50vh]' : ''
+          } md:max-h-none`}
+          style={{ borderColor: '#444' }}
+        >
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-600" style={{ backgroundColor: '#3E3E3E' }}>
             {(['metrics', 'tests'] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => handleTabClick(tab)}
                 className={`flex-1 py-3 text-xs font-semibold transition-colors ${
                   activeTab === tab
                     ? 'text-white border-b-2'
@@ -634,12 +650,19 @@ export function AppLayout() {
               >
                 {tab === 'metrics' && 'Metrics'}
                 {tab === 'tests' && 'Tests'}
+                {/* Show collapse indicator on mobile */}
+                {tab === activeTab && (
+                  <span className="ml-1 md:hidden">{mobilePanelOpen ? '\u25B2' : '\u25BC'}</span>
+                )}
               </button>
             ))}
           </div>
 
-          {/* Panel Content */}
-          <div className="flex-1 overflow-y-auto" style={{ backgroundColor: '#3E3E3E' }}>
+          {/* Panel Content (hidden on mobile when collapsed) */}
+          <div
+            className={`flex-1 overflow-y-auto ${mobilePanelOpen ? 'block' : 'hidden'} md:block`}
+            style={{ backgroundColor: '#3E3E3E' }}
+          >
             {activeTab === 'metrics' && (
               <MetricsPanel
                 metricsA={metricsA.metrics}
