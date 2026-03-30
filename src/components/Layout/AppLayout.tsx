@@ -433,7 +433,7 @@ export function AppLayout() {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Split Viewer Area */}
         <div className="flex-1 flex flex-col md:flex-row relative">
           {/* Splat A */}
@@ -627,9 +627,9 @@ export function AppLayout() {
 
         {/* Right Panel - Tabbed Interface (collapsible on mobile) */}
         <div
-          className={`w-full md:w-80 flex flex-col border-t md:border-t-0 md:border-l border-gray-600 ${
+          className={`w-full lg:w-80 flex flex-col border-t lg:border-t-0 lg:border-l border-gray-600 ${
             mobilePanelOpen ? 'max-h-[50vh]' : ''
-          } md:max-h-none`}
+          } lg:max-h-none`}
           style={{ borderColor: '#444' }}
         >
           {/* Tab Navigation */}
