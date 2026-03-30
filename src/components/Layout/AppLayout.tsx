@@ -476,7 +476,7 @@ export function AppLayout() {
               </div>
             )}
             {!fileA ? (
-              <div className="absolute inset-0 flex items-center justify-center p-3 md:p-8">
+              <div className="absolute inset-0 flex items-start justify-center px-3 pb-3 pt-10 sm:pt-12 md:items-center md:p-8">
                 <div className="max-w-lg w-full">
                   <FileDropzone onFileSelect={handleFileSelectA} side="A" />
                 </div>
@@ -531,7 +531,7 @@ export function AppLayout() {
               </div>
             )}
             {!fileB ? (
-              <div className="absolute inset-0 flex items-center justify-center p-3 md:p-8">
+              <div className="absolute inset-0 flex items-start justify-center px-3 pb-3 pt-10 sm:pt-12 md:items-center md:p-8">
                 <div className="max-w-lg w-full">
                   <FileDropzone onFileSelect={handleFileSelectB} side="B" />
                 </div>
