@@ -633,12 +633,12 @@ export function AppLayout() {
           style={{ borderColor: '#444' }}
         >
           {/* Tab Navigation */}
-          <div className="flex border-b border-gray-600" style={{ backgroundColor: '#3E3E3E' }}>
+          <div className="flex border-b border-gray-600 min-w-0" style={{ backgroundColor: "#3E3E3E" }}>
             {(['metrics', 'tests'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => handleTabClick(tab)}
-                className={`flex-1 py-3 text-xs font-semibold transition-colors ${
+                className={`flex flex-1 basis-0 min-w-0 items-center justify-center gap-1 px-2 py-3 text-[11px] sm:text-xs font-semibold transition-colors ${
                   activeTab === tab
                     ? 'text-white border-b-2'
                     : 'text-gray-400 hover:text-gray-200'
@@ -648,11 +648,10 @@ export function AppLayout() {
                   fontFamily: 'Arvo, serif',
                 }}
               >
-                {tab === 'metrics' && 'Metrics'}
-                {tab === 'tests' && 'Tests'}
+                <span className="truncate">{tab === "metrics" ? "Metrics" : "Tests"}</span>
                 {/* Show collapse indicator on mobile */}
                 {tab === activeTab && (
-                  <span className="ml-1 md:hidden">{mobilePanelOpen ? '\u25B2' : '\u25BC'}</span>
+                  <span className="shrink-0 md:hidden" aria-hidden="true">{mobilePanelOpen ? "\u25B2" : "\u25BC"}</span>
                 )}
               </button>
             ))}
