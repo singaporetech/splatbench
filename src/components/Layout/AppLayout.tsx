@@ -629,7 +629,7 @@ export function AppLayout() {
         <div
           className={`w-full lg:w-80 flex flex-col border-t lg:border-t-0 lg:border-l border-gray-600 ${
             mobilePanelOpen ? 'max-h-[50vh]' : ''
-          } lg:max-h-none`}
+          } md:max-h-[40vh] lg:max-h-none`}
           style={{ borderColor: '#444' }}
         >
           {/* Tab Navigation */}

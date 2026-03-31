@@ -10,8 +10,8 @@ export function FileDropzone({ onFileSelect, side }: FileDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
-  // Create unique input ID based on side to prevent conflicts
-  const inputId = side ? `file-input-${side}` : 'file-input';
+  // Use distinct ID from AppLayout's hidden file inputs to prevent duplicate IDs
+  const inputId = side ? `dropzone-file-input-${side}` : 'dropzone-file-input';
 
   const validateFile = (file: File): boolean => {
     const validExtensions = ['.ply', '.splat', '.ksplat', '.spz'];
