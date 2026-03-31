@@ -437,7 +437,7 @@ export function AppLayout() {
         {/* Split Viewer Area */}
         <div className="flex-1 flex flex-col md:flex-row relative">
           {/* Splat A */}
-          <div className="flex-1 relative min-h-0 viewer-a-pane">
+          <div className="flex-1 relative min-h-0 overflow-hidden viewer-a-pane">
             {/* File info top-left */}
             <div className="absolute top-2 left-2 md:top-4 md:left-4 z-20">
               <div className="px-2 py-1.5 md:px-3 md:py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
@@ -492,7 +492,7 @@ export function AppLayout() {
           </div>
 
           {/* Splat B */}
-          <div className="flex-1 relative min-h-0">
+          <div className="flex-1 relative min-h-0 overflow-hidden">
             {/* File info top-left */}
             <div className="absolute top-2 left-2 md:top-4 md:left-4 z-20">
               <div className="px-2 py-1.5 md:px-3 md:py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
