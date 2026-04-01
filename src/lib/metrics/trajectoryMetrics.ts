@@ -93,6 +93,13 @@ export function captureFrame(context: SparkViewerContext): ImageData {
     throw new Error('Cannot get WebGL context for frame capture');
   }
 
+  // Unbind any PIXEL_PACK_BUFFER left by the renderer (WebGL2 PBO)
+  // to avoid "a buffer is bound to PIXEL_PACK_BUFFER" errors on readPixels
+  const gl2 = gl as WebGL2RenderingContext;
+  if (gl2.PIXEL_PACK_BUFFER) {
+    gl2.bindBuffer(gl2.PIXEL_PACK_BUFFER, null);
+  }
+
   const width = canvas.width;
   const height = canvas.height;
   const pixels = new Uint8Array(width * height * 4);
