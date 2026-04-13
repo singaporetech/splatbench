@@ -4,16 +4,26 @@
  * Allows users to select a folder containing paired files
  * (ref_<name>.<ext> and test_<name>.<ext>), previews detected pairs,
  * and runs all registered tests on each pair sequentially.
+ *
+ * When every pair name matches the canonical <scene>-<format> paper pattern,
+ * the batch runner automatically expands each pair into the full paper matrix:
+ * 5 viewpoints x 3 replicates x all registered tests.
  */
 
 import { useRef, useCallback } from 'react';
-import type { SparkViewerContext } from '../../types';
+import type { BenchmarkMetrics, SparkViewerContext } from '../../types';
 import type { TestScene } from '../../lib/testing/types';
 import type { GSFile } from '../../types';
 import { useBatchFolder } from '../../hooks/useBatchFolder';
 import type { FilePair } from '../../hooks/useBatchFolder';
-import { useBatchTestRunner } from '../../hooks/useBatchTestRunner';
+import {
+  createPaperRunPlans,
+  parsePaperPairName,
+  useBatchTestRunner,
+} from '../../hooks/useBatchTestRunner';
 import type { BatchPairResult } from '../../hooks/useBatchTestRunner';
+import { getTests } from '../../lib/testing/registry';
+import { downloadPaperCSV, exportPaperBatchResultsToCSV } from '../../lib/export/paperCsvExport';
 import { InfoTooltip } from '../UI/InfoTooltip';
 
 interface BatchTestPanelProps {
@@ -23,11 +33,13 @@ interface BatchTestPanelProps {
   onLoadRef: (file: GSFile) => Promise<SparkViewerContext | null>;
   /** Callback to load a file into the test (right) viewer */
   onLoadTest: (file: GSFile) => Promise<SparkViewerContext | null>;
+  /** Snapshot current reference metrics for paper CSV export */
+  getReferenceMetrics?: () => BenchmarkMetrics;
+  /** Snapshot current test metrics for paper CSV export */
+  getTestMetrics?: () => BenchmarkMetrics;
+  /** Notify parent when batch execution starts or ends */
+  onBatchRunningChange?: (running: boolean) => void;
 }
-
-// InfoTooltip imported from ../UI/InfoTooltip
-
-// ─── Pair Preview Card ──────────────────────────────────────────────────────
 
 function PairCard({ pair, index }: { pair: FilePair; index: number }) {
   return (
@@ -59,7 +71,15 @@ function PairCard({ pair, index }: { pair: FilePair; index: number }) {
   );
 }
 
-// ─── Batch Result Card ──────────────────────────────────────────────────────
+function formatResultRunLabel(result: BatchPairResult, index: number): string | null {
+  const row = result.paperRows[index];
+  if (!row) return null;
+
+  const parts: string[] = [];
+  if (row.viewpointName) parts.push(row.viewpointName);
+  if (row.replicate) parts.push(`r${row.replicate}`);
+  return parts.length > 0 ? parts.join(' / ') : null;
+}
 
 function BatchResultCard({ result }: { result: BatchPairResult }) {
   if (result.error) {
@@ -93,6 +113,7 @@ function BatchResultCard({ result }: { result: BatchPairResult }) {
   const total = result.results.length;
   const allPassed = passed === total;
   const borderColor = allPassed ? '#BEFF74' : '#FF575F';
+  const hasPaperMetadata = result.paperRows.some((row) => row.viewpointName || row.replicate);
 
   return (
     <div
@@ -121,33 +142,53 @@ function BatchResultCard({ result }: { result: BatchPairResult }) {
         <span style={{ color: '#555' }}>vs</span>
         <span style={{ color: '#FFACBF' }}>{result.testFile}</span>
       </div>
-      {/* Per-test results summary */}
-      <div className="space-y-1">
-        {result.results.map((r) => {
+      {hasPaperMetadata && (
+        <div className="text-xs mb-2" style={{ color: '#888' }}>
+          Paper matrix export data collected for this pair.
+        </div>
+      )}
+      <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+        {result.results.map((r, index) => {
           const color = r.passed ? '#BEFF74' : '#FF575F';
-          // Show key metrics inline
+          const runLabel = formatResultRunLabel(result, index);
           const keyMetrics = r.metricEntries
-            .filter((m) => m.label.toLowerCase().includes('mean') || m.label.toLowerCase().includes('psnr') || m.label.toLowerCase().includes('ssim'))
+            .filter(
+              (m) =>
+                m.label.toLowerCase().includes('mean') ||
+                m.label.toLowerCase().includes('psnr') ||
+                m.label.toLowerCase().includes('ssim'),
+            )
             .slice(0, 3);
 
           return (
             <div
-              key={r.testId}
+              key={`${result.pairName}-${r.testId}-${index}`}
               className="flex items-center justify-between py-1"
               style={{ borderBottom: '1px solid #33333340' }}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <span
                   className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: color }}
                 />
-                <span className="text-xs" style={{ color: '#FDFDFB' }}>
-                  {r.testId}
-                </span>
+                <div className="min-w-0">
+                  <div className="text-xs truncate" style={{ color: '#FDFDFB' }}>
+                    {r.testId}
+                  </div>
+                  {runLabel && (
+                    <div className="text-[11px] truncate" style={{ color: '#888' }}>
+                      {runLabel}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                {keyMetrics.map((m, i) => (
-                  <span key={i} className="text-xs font-mono" style={{ color: '#888' }}>
+              <div className="flex gap-2 pl-2">
+                {keyMetrics.map((m, metricIndex) => (
+                  <span
+                    key={metricIndex}
+                    className="text-xs font-mono whitespace-nowrap"
+                    style={{ color: '#888' }}
+                  >
                     {m.value < 0.01 ? m.value.toFixed(6) : m.value.toFixed(3)}
                     {m.unit ? ` ${m.unit}` : ''}
                   </span>
@@ -161,9 +202,6 @@ function BatchResultCard({ result }: { result: BatchPairResult }) {
   );
 }
 
-// ─── Main Component ─────────────────────────────────────────────────────────
-
-// Detect webkitdirectory support (unsupported on iOS Safari)
 const supportsWebkitDirectory = (() => {
   try {
     const input = document.createElement('input');
@@ -176,6 +214,9 @@ const supportsWebkitDirectory = (() => {
 export function BatchTestPanel({
   onLoadRef,
   onLoadTest,
+  getReferenceMetrics,
+  getTestMetrics,
+  onBatchRunningChange,
 }: BatchTestPanelProps) {
   const folder = useBatchFolder();
   const batchRunner = useBatchTestRunner();
@@ -190,7 +231,6 @@ export function BatchTestPanel({
       if (e.target.files && e.target.files.length > 0) {
         folder.handleFolderSelect(e.target.files);
       }
-      // Reset the input so the same folder can be re-selected
       e.target.value = '';
     },
     [folder],
@@ -199,30 +239,61 @@ export function BatchTestPanel({
   const handleRunBatch = useCallback(async () => {
     if (folder.pairs.length === 0) return;
 
-    await batchRunner.startBatch(
-      folder.pairs,
-      async (ref: GSFile, test: GSFile): Promise<TestScene | null> => {
-        // Load both files into viewers via parent callbacks
-        const ctxA = await onLoadRef(ref);
-        const ctxB = await onLoadTest(test);
+    onBatchRunningChange?.(true);
+    try {
+      await batchRunner.startBatch(
+        folder.pairs,
+        async (ref: GSFile, test: GSFile): Promise<TestScene | null> => {
+          const ctxA = await onLoadRef(ref);
+          const ctxB = await onLoadTest(test);
 
-        if (!ctxA) return null;
+          if (!ctxA) return null;
 
-        return {
-          primary: ctxA,
-          reference: ctxB,
-        };
-      },
-    );
-  }, [folder.pairs, batchRunner, onLoadRef, onLoadTest]);
+          return {
+            primary: ctxA,
+            reference: ctxB,
+          };
+        },
+        getReferenceMetrics && getTestMetrics
+          ? (scene) => {
+              const cameraPosition = scene.primary.camera.position;
+              return {
+                reference: getReferenceMetrics(),
+                test: getTestMetrics(),
+                cameraPosition: {
+                  x: cameraPosition.x,
+                  y: cameraPosition.y,
+                  z: cameraPosition.z,
+                },
+                canvasWidth: scene.primary.canvas.width,
+                canvasHeight: scene.primary.canvas.height,
+              };
+            }
+          : undefined,
+      );
+    } finally {
+      onBatchRunningChange?.(false);
+    }
+  }, [folder.pairs, batchRunner, onLoadRef, onLoadTest, getReferenceMetrics, getTestMetrics, onBatchRunningChange]);
+
+  const handleDownloadPaperCSV = useCallback(() => {
+    const csv = exportPaperBatchResultsToCSV(batchRunner.pairResults);
+    downloadPaperCSV(csv);
+  }, [batchRunner.pairResults]);
 
   const isRunning = batchRunner.status === 'running';
   const isDone = batchRunner.status === 'done' || batchRunner.status === 'cancelled';
   const canRun = folder.pairs.length > 0 && !isRunning;
+  const allPairsPaperReady =
+    folder.pairs.length > 0 && folder.pairs.every((pair) => parsePaperPairName(pair.name) !== null);
+  const registeredTestCount = getTests().length;
+  const expectedPaperRows =
+    folder.pairs.reduce((sum, pair) => sum + (createPaperRunPlans(pair.name)?.length ?? 0), 0) *
+    registeredTestCount;
+  const progressLabel = batchRunner.totalPairs === folder.pairs.length ? 'pair' : 'step';
 
   return (
     <div>
-      {/* Hidden file input -- folder mode on desktop, multi-file on iOS */}
       {supportsWebkitDirectory ? (
         <input
           ref={fileInputRef}
@@ -244,7 +315,6 @@ export function BatchTestPanel({
         />
       )}
 
-      {/* Sticky batch progress -- visible only when running */}
       {isRunning && (
         <div
           className="px-6 py-3 -mx-6 -mt-0 mb-4"
@@ -257,12 +327,17 @@ export function BatchTestPanel({
           }}
         >
           {(() => {
-            const batchFraction = batchRunner.currentPairIndex / batchRunner.totalPairs;
+            const batchFraction = batchRunner.totalPairs > 0
+              ? batchRunner.currentPairIndex / batchRunner.totalPairs
+              : 0;
             const batchRawPercent = Math.max(0, Math.min(batchFraction * 100, 100));
             const batchPercent = Math.round(batchRawPercent);
             const batchComplete = batchPercent >= 100;
             const batchBarWidth = batchComplete ? 100 : batchRawPercent;
-            const testRawPercent = Math.max(0, Math.min(batchRunner.currentTestProgress * 100, 100));
+            const testRawPercent = Math.max(
+              0,
+              Math.min(batchRunner.currentTestProgress * 100, 100),
+            );
             const testPercent = Math.round(testRawPercent);
             const testComplete = testPercent >= 100;
             const testBarWidth = testComplete ? 100 : testRawPercent;
@@ -270,7 +345,7 @@ export function BatchTestPanel({
               <>
                 <div className="flex justify-between text-xs mb-1">
                   <span style={{ color: '#FFACBF' }}>
-                    Processing pair {batchRunner.currentPairIndex + 1}/{batchRunner.totalPairs}
+                    Processing {progressLabel} {Math.min(batchRunner.currentPairIndex + 1, batchRunner.totalPairs)}/{batchRunner.totalPairs}
                   </span>
                   <span className="font-mono" style={{ color: '#FDFDFB' }}>
                     {batchPercent}%
@@ -293,11 +368,12 @@ export function BatchTestPanel({
                   {' / '}
                   <span style={{ color: '#FFACBF' }}>{batchRunner.currentTestName}</span>
                 </div>
-                {/* Current test progress */}
                 <div className="mt-2">
                   <div className="flex justify-between text-xs mb-1">
                     <span style={{ color: '#888' }}>
-                      {testComplete ? (batchRunner.currentTestMessage || 'Complete') : batchRunner.currentTestMessage}
+                      {testComplete
+                        ? batchRunner.currentTestMessage || 'Complete'
+                        : batchRunner.currentTestMessage}
                     </span>
                     <span className="font-mono text-xs" style={{ color: '#FDFDFB' }}>
                       {testPercent}%
@@ -322,15 +398,14 @@ export function BatchTestPanel({
         </div>
       )}
 
-      {/* Batch mode explanation */}
       <p className="text-xs mb-3" style={{ color: '#888' }}>
         Each <span style={{ color: '#B39DFF' }}>reference</span> splat is kept fixed while its
         paired <span style={{ color: '#FFACBF' }}>test</span> splat is compared against it.
-        All test pairs are processed one by one.{' '}
-        <InfoTooltip text="Place ref_<name> and test_<name> file pairs in a folder. For each pair, the reference splat is loaded as ground truth and the test splat is evaluated against it using all registered metrics. Results are reported per pair." />
+        Canonical paper pairs named as <span className="font-mono">scene-format</span> are
+        expanded automatically into 5 viewpoints, 3 replicates, and all registered tests.{' '}
+        <InfoTooltip text="Place ref_<name> and test_<name> file pairs in a folder. Standard pairs run once. Canonical paper pairs such as ref_bonsai-splat.ply and test_bonsai-splat.splat automatically run the full paper matrix and can be exported directly to the 41-column paper CSV." />
       </p>
 
-      {/* Naming convention help */}
       <div
         className="p-3 rounded-lg mb-4"
         style={{ backgroundColor: 'rgba(179, 157, 255, 0.08)', border: '1px solid #44444480' }}
@@ -364,12 +439,31 @@ export function BatchTestPanel({
           </div>
         </div>
         <div className="mt-2 text-xs" style={{ color: '#666' }}>
-          Example: <span className="font-mono" style={{ color: '#B39DFF' }}>ref_bonsai.ply</span>{' '}
-          + <span className="font-mono" style={{ color: '#FFACBF' }}>test_bonsai.splat</span>
+          Generic example:{' '}
+          <span className="font-mono" style={{ color: '#B39DFF' }}>ref_bonsai.ply</span> +{' '}
+          <span className="font-mono" style={{ color: '#FFACBF' }}>test_bonsai.splat</span>
+        </div>
+        <div className="mt-1 text-xs" style={{ color: '#666' }}>
+          Paper example:{' '}
+          <span className="font-mono" style={{ color: '#B39DFF' }}>ref_bonsai-splat.ply</span> +{' '}
+          <span className="font-mono" style={{ color: '#FFACBF' }}>test_bonsai-splat.splat</span>
         </div>
       </div>
 
-      {/* Folder selection */}
+      {allPairsPaperReady && (
+        <div
+          className="mb-4 p-3 rounded-lg text-xs"
+          style={{ backgroundColor: 'rgba(190, 255, 116, 0.08)', border: '1px solid #44444480' }}
+        >
+          <div className="font-semibold mb-1" style={{ color: '#BEFF74' }}>
+            Paper batch detected
+          </div>
+          <div style={{ color: '#888' }}>
+            This folder will produce {expectedPaperRows} CSV rows if all {registeredTestCount} tests complete for every viewpoint and replicate.
+          </div>
+        </div>
+      )}
+
       <button
         onClick={handleSelectFolder}
         disabled={isRunning}
@@ -386,7 +480,6 @@ export function BatchTestPanel({
           : supportsWebkitDirectory ? 'Select Batch Folder' : 'Select Batch Files'}
       </button>
 
-      {/* Folder info */}
       {folder.hasFolder && (
         <div className="flex items-center justify-between mb-3">
           <div className="text-xs" style={{ color: '#FDFDFB' }}>
@@ -394,7 +487,10 @@ export function BatchTestPanel({
             <span className="font-semibold">{folder.folderName}</span>
           </div>
           <button
-            onClick={() => { folder.clearFolder(); batchRunner.resetBatch(); }}
+            onClick={() => {
+              folder.clearFolder();
+              batchRunner.resetBatch();
+            }}
             disabled={isRunning}
             className="text-xs px-2 py-1 rounded"
             style={{
@@ -409,7 +505,6 @@ export function BatchTestPanel({
         </div>
       )}
 
-      {/* Error */}
       {folder.error && (
         <div
           className="mb-3 p-3 rounded-lg text-xs"
@@ -423,7 +518,6 @@ export function BatchTestPanel({
         </div>
       )}
 
-      {/* Detected pairs */}
       {folder.pairs.length > 0 && (
         <div className="mb-4">
           <div
@@ -440,7 +534,6 @@ export function BatchTestPanel({
         </div>
       )}
 
-      {/* Unmatched files warning */}
       {folder.unmatchedFiles.length > 0 && (
         <div
           className="mb-4 p-2 rounded-lg text-xs"
@@ -455,7 +548,6 @@ export function BatchTestPanel({
         </div>
       )}
 
-      {/* Run / Cancel buttons */}
       {folder.pairs.length > 0 && (
         <div className="mb-4">
           {isRunning ? (
@@ -477,16 +569,16 @@ export function BatchTestPanel({
                 cursor: canRun ? 'pointer' : 'not-allowed',
               }}
             >
-              Run Batch Tests ({folder.pairs.length} pair{folder.pairs.length > 1 ? 's' : ''})
+              {allPairsPaperReady
+                ? `Run Paper Matrix (${folder.pairs.length} pairs, ${expectedPaperRows} CSV rows)`
+                : `Run Batch Tests (${folder.pairs.length} pair${folder.pairs.length > 1 ? 's' : ''})`}
             </button>
           )}
         </div>
       )}
 
-      {/* Results */}
       {isDone && batchRunner.pairResults.length > 0 && (
         <div>
-          {/* Overall summary */}
           {(() => {
             const totalTests = batchRunner.pairResults.reduce(
               (sum, pr) => sum + pr.results.length,
@@ -530,7 +622,6 @@ export function BatchTestPanel({
             );
           })()}
 
-          {/* Per-pair results */}
           <div
             className="text-xs font-semibold uppercase tracking-wide mb-2"
             style={{ color: '#FFACBF' }}
@@ -543,10 +634,17 @@ export function BatchTestPanel({
             ))}
           </div>
 
-          {/* Reset button */}
+          <button
+            onClick={handleDownloadPaperCSV}
+            className="w-full mt-4 py-2 text-xs rounded-lg transition-colors"
+            style={{ backgroundColor: '#BEFF74', color: '#1F1F1F' }}
+          >
+            Download Paper CSV
+          </button>
+
           <button
             onClick={batchRunner.resetBatch}
-            className="w-full mt-4 py-2 text-xs rounded-lg transition-colors"
+            className="w-full mt-2 py-2 text-xs rounded-lg transition-colors"
             style={{ backgroundColor: '#555', color: '#FDFDFB' }}
           >
             Clear Results
@@ -554,7 +652,6 @@ export function BatchTestPanel({
         </div>
       )}
 
-      {/* In-progress results */}
       {isRunning && batchRunner.pairResults.length > 0 && (
         <div className="mt-4">
           <div

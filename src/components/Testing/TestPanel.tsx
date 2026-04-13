@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import type { SparkViewerContext } from '../../types';
+import type { BenchmarkMetrics, SparkViewerContext } from '../../types';
 import type { GSFile } from '../../types';
 import type { TestScene, TestStatus } from '../../lib/testing/types';
 import { useTestRunner } from '../../hooks/useTestRunner';
@@ -30,6 +30,12 @@ interface TestPanelProps {
   onLoadRef?: (file: GSFile) => Promise<SparkViewerContext | null>;
   /** Callback to load a file into the test (right) viewer, returns context */
   onLoadTest?: (file: GSFile) => Promise<SparkViewerContext | null>;
+  /** Snapshot current reference metrics for batch paper CSV export */
+  getReferenceMetrics?: () => BenchmarkMetrics;
+  /** Snapshot current test metrics for batch paper CSV export */
+  getTestMetrics?: () => BenchmarkMetrics;
+  /** Notify parent when batch execution starts or ends */
+  onBatchRunningChange?: (running: boolean) => void;
 }
 
 type SubTab = 'current' | 'batch';
@@ -627,7 +633,15 @@ function CurrentModelsPanel({
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export function TestPanel({ contextA, contextB, onLoadRef, onLoadTest }: TestPanelProps) {
+export function TestPanel({
+  contextA,
+  contextB,
+  onLoadRef,
+  onLoadTest,
+  getReferenceMetrics,
+  getTestMetrics,
+  onBatchRunningChange,
+}: TestPanelProps) {
   const [subTab, setSubTab] = useState<SubTab>('current');
 
   // Default no-op loaders if not provided by parent
@@ -697,6 +711,9 @@ export function TestPanel({ contextA, contextB, onLoadRef, onLoadTest }: TestPan
             contextB={contextB}
             onLoadRef={loadRef}
             onLoadTest={loadTest}
+            getReferenceMetrics={getReferenceMetrics}
+            getTestMetrics={getTestMetrics}
+            onBatchRunningChange={onBatchRunningChange}
           />
         )}
       </div>

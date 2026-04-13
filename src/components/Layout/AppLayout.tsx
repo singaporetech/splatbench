@@ -44,6 +44,7 @@ export function AppLayout() {
   const [showCameraPresets, setShowCameraPresets] = useState(true);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
+  const [isBatchTesting, setIsBatchTesting] = useState(false);
 
   const metricsA = useMetrics();
   const metricsB = useMetrics();
@@ -188,7 +189,7 @@ export function AppLayout() {
 
   // Auto-trigger quality comparison when both files are loaded
   useEffect(() => {
-    if (fileA && fileB && contextA && contextB && !imageQuality.isComparing && imageQuality.metrics.psnr === null) {
+    if (fileA && fileB && contextA && contextB && !isBatchTesting && !imageQuality.isComparing && imageQuality.metrics.psnr === null) {
       const timer = setTimeout(() => {
         console.log('=== Auto-triggering Quality Comparison ===');
         console.log('Splat A:', fileA.name, 'Scene:', detectSceneName(fileA.name));
@@ -200,7 +201,7 @@ export function AppLayout() {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [fileA, fileB, contextA, contextB, imageQuality.isComparing, imageQuality.metrics.psnr]);
+  }, [fileA, fileB, contextA, contextB, isBatchTesting, imageQuality.isComparing, imageQuality.metrics.psnr]);
 
   // Refs for resolving batch-load promises when viewer context becomes ready
   const contextResolverA = useRef<((ctx: SparkViewerContext) => void) | null>(null);
@@ -679,6 +680,9 @@ export function AppLayout() {
                 contextB={contextB}
                 onLoadRef={handleBatchLoadRef}
                 onLoadTest={handleBatchLoadTest}
+                getReferenceMetrics={metricsA.getCurrentMetrics}
+                getTestMetrics={metricsB.getCurrentMetrics}
+                onBatchRunningChange={setIsBatchTesting}
               />
             )}
           </div>
