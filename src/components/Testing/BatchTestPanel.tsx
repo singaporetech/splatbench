@@ -331,15 +331,15 @@ export function BatchTestPanel({
               ? batchRunner.currentPairIndex / batchRunner.totalPairs
               : 0;
             const batchRawPercent = Math.max(0, Math.min(batchFraction * 100, 100));
-            const batchPercent = Math.round(batchRawPercent);
-            const batchComplete = batchPercent >= 100;
+            const batchComplete = batchRawPercent >= 100;
+            const batchPercent = batchComplete ? 100 : Math.floor(batchRawPercent);
             const batchBarWidth = batchComplete ? 100 : batchRawPercent;
             const testRawPercent = Math.max(
               0,
               Math.min(batchRunner.currentTestProgress * 100, 100),
             );
-            const testPercent = Math.round(testRawPercent);
-            const testComplete = testPercent >= 100;
+            const testComplete = testRawPercent >= 100;
+            const testPercent = testComplete ? 100 : Math.floor(testRawPercent);
             const testBarWidth = testComplete ? 100 : testRawPercent;
             return (
               <>

@@ -82,8 +82,8 @@ function ProgressBar({
 }) {
   const isMetricsPhase = phase?.toLowerCase().includes('metric');
   const rawPercent = Math.max(0, Math.min(fraction * 100, 100));
-  const displayPercent = Math.round(rawPercent);
-  const isComplete = displayPercent >= 100;
+  const isComplete = rawPercent >= 100;
+  const displayPercent = isComplete ? 100 : Math.floor(rawPercent);
   const barWidth = isComplete ? 100 : rawPercent;
   const barColor = isMetricsPhase ? '#FFACBF' : '#B39DFF';
   const phaseColor = isMetricsPhase ? '#FFACBF' : '#B39DFF';
@@ -111,7 +111,7 @@ function ProgressBar({
         style={{ backgroundColor: '#555' }}
       >
         <div
-          className="h-1.5 rounded-full transition-all duration-150"
+          className={`h-1.5 rounded-full ${isComplete ? '' : 'transition-all duration-150'}`}
           style={{
             width: `${barWidth}%`,
             backgroundColor: barColor,
@@ -140,7 +140,7 @@ function TestQueueProgress({
   const currentTest = isRunning ? Math.min(completed + 1, total) : completed;
   const fraction = completed / total;
   const rawPercent = Math.max(0, Math.min(fraction * 100, 100));
-  const isComplete = Math.round(rawPercent) >= 100;
+  const isComplete = rawPercent >= 100;
   const barWidth = isComplete ? 100 : rawPercent;
   return (
     <div className="mb-4">
@@ -161,7 +161,7 @@ function TestQueueProgress({
         style={{ backgroundColor: '#555' }}
       >
         <div
-          className="h-2 rounded-full transition-all duration-300"
+          className={`h-2 rounded-full ${isComplete ? '' : 'transition-all duration-300'}`}
           style={{
             width: `${barWidth}%`,
             backgroundColor: '#BEFF74',
