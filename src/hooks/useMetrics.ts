@@ -64,6 +64,21 @@ export function useMetrics() {
     });
   };
 
+  const resetFrameStats = () => {
+    collectorRef.current.resetFrameStats();
+    setMetrics((current) => ({
+      ...current,
+      fps: 0,
+      frameTime: 0,
+      frameTimeVariance: 0,
+      fps1PercentLow: 0,
+      fps01PercentLow: 0,
+      frameTimeP50: 0,
+      frameTimeP95: 0,
+      frameTimeP99: 0,
+    }));
+  };
+
   const getCurrentMetrics = () => {
     return collectorRef.current.getMetrics();
   };
@@ -75,6 +90,7 @@ export function useMetrics() {
     setFileInfo,
     setResolution,
     reset,
+    resetFrameStats,
     getCurrentMetrics,
   };
 }

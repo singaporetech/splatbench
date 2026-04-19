@@ -682,6 +682,8 @@ export function AppLayout() {
                 onLoadTest={handleBatchLoadTest}
                 getReferenceMetrics={metricsA.getCurrentMetrics}
                 getTestMetrics={metricsB.getCurrentMetrics}
+                resetReferenceMetrics={metricsA.resetFrameStats}
+                resetTestMetrics={metricsB.resetFrameStats}
                 onBatchRunningChange={setIsBatchTesting}
               />
             )}

@@ -129,6 +129,12 @@ export interface UseBatchTestRunnerReturn {
       pair: FilePair,
       result: TestResult,
     ) => PaperMetricSnapshot,
+    prepareForTest?: (
+      scene: TestScene,
+      pair: FilePair,
+      test: Test,
+      runPlan: PaperRunPlan | null,
+    ) => Promise<void>,
   ) => Promise<void>;
   /** Cancel the running batch */
   cancelBatch: () => void;
@@ -162,6 +168,12 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
         pair: FilePair,
         result: TestResult,
       ) => PaperMetricSnapshot,
+      prepareForTest?: (
+        scene: TestScene,
+        pair: FilePair,
+        test: Test,
+        runPlan: PaperRunPlan | null,
+      ) => Promise<void>,
     ) => {
       if (pairs.length === 0) return;
 
@@ -243,6 +255,9 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
               if (controller.signal.aborted) break;
 
               const test = allTests[testIdx];
+              if (prepareForTest) {
+                await prepareForTest(scene, pair, test, runPlan);
+              }
               setCurrentTestName(test.name);
               setCurrentTestProgress(0);
               setCurrentTestMessage(`Starting ${test.name}...`);

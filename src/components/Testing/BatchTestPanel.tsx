@@ -37,6 +37,10 @@ interface BatchTestPanelProps {
   getReferenceMetrics?: () => BenchmarkMetrics;
   /** Snapshot current test metrics for paper CSV export */
   getTestMetrics?: () => BenchmarkMetrics;
+  /** Clear rolling reference performance samples while keeping file metadata */
+  resetReferenceMetrics?: () => void;
+  /** Clear rolling test performance samples while keeping file metadata */
+  resetTestMetrics?: () => void;
   /** Notify parent when batch execution starts or ends */
   onBatchRunningChange?: (running: boolean) => void;
 }
@@ -216,6 +220,8 @@ export function BatchTestPanel({
   onLoadTest,
   getReferenceMetrics,
   getTestMetrics,
+  resetReferenceMetrics,
+  resetTestMetrics,
   onBatchRunningChange,
 }: BatchTestPanelProps) {
   const folder = useBatchFolder();
@@ -270,11 +276,30 @@ export function BatchTestPanel({
               };
             }
           : undefined,
+        resetReferenceMetrics && resetTestMetrics
+          ? async () => {
+              await new Promise<void>((resolve) => {
+                requestAnimationFrame(() => resolve());
+              });
+              resetReferenceMetrics();
+              resetTestMetrics();
+            }
+          : undefined,
       );
     } finally {
       onBatchRunningChange?.(false);
     }
-  }, [folder.pairs, batchRunner, onLoadRef, onLoadTest, getReferenceMetrics, getTestMetrics, onBatchRunningChange]);
+  }, [
+    folder.pairs,
+    batchRunner,
+    onLoadRef,
+    onLoadTest,
+    getReferenceMetrics,
+    getTestMetrics,
+    resetReferenceMetrics,
+    resetTestMetrics,
+    onBatchRunningChange,
+  ]);
 
   const handleDownloadPaperCSV = useCallback(() => {
     const csv = exportPaperBatchResultsToCSV(batchRunner.pairResults);

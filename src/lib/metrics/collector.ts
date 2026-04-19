@@ -105,6 +105,10 @@ export class MetricsCollector {
     };
   }
 
+  resetFrameStats() {
+    this.frameTimes = [];
+  }
+
   reset() {
     this.frameTimes = [];
     this.loadTime = 0;
