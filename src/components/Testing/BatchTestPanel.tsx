@@ -144,7 +144,7 @@ function BatchResultCard({ result }: { result: BatchPairResult }) {
       </div>
       {hasPaperMetadata && (
         <div className="text-xs mb-2" style={{ color: '#888' }}>
-          Paper matrix export data collected for this pair.
+          Benchmark matrix export data collected for this pair.
         </div>
       )}
       <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
@@ -356,7 +356,7 @@ export function BatchTestPanel({
                   style={{ backgroundColor: '#555' }}
                 >
                   <div
-                    className="h-2 rounded-full transition-all duration-300"
+                    className={`h-2 rounded-full ${batchComplete ? '' : 'transition-all duration-300'}`}
                     style={{
                       width: `${batchBarWidth}%`,
                       backgroundColor: '#BEFF74',
@@ -384,7 +384,7 @@ export function BatchTestPanel({
                     style={{ backgroundColor: '#444' }}
                   >
                     <div
-                      className="h-1.5 rounded-full transition-all duration-150"
+                      className={`h-1.5 rounded-full ${testComplete ? '' : 'transition-all duration-150'}`}
                       style={{
                         width: `${testBarWidth}%`,
                         backgroundColor: '#B39DFF',
@@ -401,9 +401,9 @@ export function BatchTestPanel({
       <p className="text-xs mb-3" style={{ color: '#888' }}>
         Each <span style={{ color: '#B39DFF' }}>reference</span> splat is kept fixed while its
         paired <span style={{ color: '#FFACBF' }}>test</span> splat is compared against it.
-        Canonical paper pairs named as <span className="font-mono">scene-format</span> are
+        Canonical benchmark pairs named as <span className="font-mono">scene-format</span> are
         expanded automatically into 5 viewpoints, 3 replicates, and all registered tests.{' '}
-        <InfoTooltip text="Place ref_<name> and test_<name> file pairs in a folder. Standard pairs run once. Canonical paper pairs such as ref_bonsai-splat.ply and test_bonsai-splat.splat automatically run the full paper matrix and can be exported directly to the 41-column paper CSV." />
+        <InfoTooltip text="Place ref_<name> and test_<name> file pairs in a folder. Standard pairs run once. Canonical benchmark pairs such as ref_bonsai-splat.ply and test_bonsai-splat.splat automatically run the full benchmark matrix and can be exported directly to the 41-column benchmark CSV." />
       </p>
 
       <div
@@ -444,7 +444,7 @@ export function BatchTestPanel({
           <span className="font-mono" style={{ color: '#FFACBF' }}>test_bonsai.splat</span>
         </div>
         <div className="mt-1 text-xs" style={{ color: '#666' }}>
-          Paper example:{' '}
+          Benchmark matrix example:{' '}
           <span className="font-mono" style={{ color: '#B39DFF' }}>ref_bonsai-splat.ply</span> +{' '}
           <span className="font-mono" style={{ color: '#FFACBF' }}>test_bonsai-splat.splat</span>
         </div>
@@ -456,7 +456,7 @@ export function BatchTestPanel({
           style={{ backgroundColor: 'rgba(190, 255, 116, 0.08)', border: '1px solid #44444480' }}
         >
           <div className="font-semibold mb-1" style={{ color: '#BEFF74' }}>
-            Paper batch detected
+            Benchmark matrix batch detected
           </div>
           <div style={{ color: '#888' }}>
             This folder will produce {expectedPaperRows} CSV rows if all {registeredTestCount} tests complete for every viewpoint and replicate.
@@ -570,7 +570,7 @@ export function BatchTestPanel({
               }}
             >
               {allPairsPaperReady
-                ? `Run Paper Matrix (${folder.pairs.length} pairs, ${expectedPaperRows} CSV rows)`
+                ? `Run Benchmark Matrix (${folder.pairs.length} pairs, ${expectedPaperRows} CSV rows)`
                 : `Run Batch Tests (${folder.pairs.length} pair${folder.pairs.length > 1 ? 's' : ''})`}
             </button>
           )}
@@ -639,7 +639,7 @@ export function BatchTestPanel({
             className="w-full mt-4 py-2 text-xs rounded-lg transition-colors"
             style={{ backgroundColor: '#BEFF74', color: '#1F1F1F' }}
           >
-            Download Paper CSV
+            Download Benchmark CSV
           </button>
 
           <button
