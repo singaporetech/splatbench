@@ -1,6 +1,6 @@
 /**
  * Screenshot Capture System for SplatBench
- * 
+ *
  * High-resolution screenshot capture with automatic naming conventions
  * for reproducible data collection and publication-ready figures.
  */
@@ -33,6 +33,53 @@ const DEFAULT_OPTIONS: ScreenshotOptions = {
   transparent: false,
 };
 
+const CANVAS_EXPORT_TIMEOUT_MS = 5000;
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, base64Data] = dataUrl.split(',');
+  const mimeType = header.match(/^data:([^;]+)/)?.[1] || 'image/png';
+  const binary = atob(base64Data);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return new Blob([bytes], { type: mimeType });
+}
+
+async function exportCanvasBlob(
+  canvas: HTMLCanvasElement,
+  mimeType: string,
+  quality?: number,
+): Promise<Blob> {
+  let timedOut = false;
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      resolve(null);
+    }, CANVAS_EXPORT_TIMEOUT_MS);
+
+    canvas.toBlob(
+      (result) => {
+        if (timedOut) return;
+        window.clearTimeout(timeout);
+        resolve(result);
+      },
+      mimeType,
+      quality,
+    );
+  });
+
+  if (blob) {
+    return blob;
+  }
+
+  console.warn('[Screenshot] canvas.toBlob timed out; falling back to toDataURL');
+  return dataUrlToBlob(canvas.toDataURL(mimeType, quality));
+}
+
 /**
  * Capture a high-resolution screenshot from a viewer
  */
@@ -43,22 +90,22 @@ export async function captureScreenshot(
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const { renderer, scene, camera } = context;
   const canvas = renderer.domElement;
-  
+
   // Store original dimensions
   const originalWidth = canvas.width;
   const originalHeight = canvas.height;
   const originalPixelRatio = renderer.getPixelRatio();
-  
+
   try {
     // Set to high resolution
     renderer.setPixelRatio(1); // Disable device pixel ratio for consistent output
     renderer.setSize(opts.width!, opts.height!, false);
     camera.aspect = opts.width! / opts.height!;
     camera.updateProjectionMatrix();
-    
+
     // Render
     renderer.render(scene, camera);
-    
+
     // Get context with alpha if needed
     const ctx = canvas.getContext('2d');
     if (opts.transparent && ctx) {
@@ -66,17 +113,15 @@ export async function captureScreenshot(
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       renderer.render(scene, camera);
     }
-    
+
+    const gl = renderer.getContext();
+    gl.flush();
+    gl.finish();
+
     // Export as blob
     const mimeType = opts.format === 'jpeg' ? 'image/jpeg' : 'image/png';
-    const blob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob(
-        (b) => resolve(b!), 
-        mimeType, 
-        opts.quality
-      );
-    });
-    
+    const blob = await exportCanvasBlob(canvas, mimeType, opts.quality);
+
     return blob;
   } finally {
     // Restore original dimensions
@@ -134,30 +179,30 @@ export async function captureComparisonScreenshot(
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const width = opts.width!;
   const height = opts.height!;
-  
+
   // Capture both viewers
   const [blobA, blobB] = await Promise.all([
     captureScreenshot(contextA, { ...opts, width: width / 2, height }),
     captureScreenshot(contextB, { ...opts, width: width / 2, height }),
   ]);
-  
+
   // Create composite canvas
   const composite = document.createElement('canvas');
   composite.width = width;
   composite.height = height;
   const ctx = composite.getContext('2d')!;
-  
+
   // Fill background
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, width, height);
-  
+
   // Draw images side by side
   const imgA = await createImageBitmap(blobA);
   const imgB = await createImageBitmap(blobB);
-  
+
   ctx.drawImage(imgA, 0, 0, width / 2, height);
   ctx.drawImage(imgB, width / 2, 0, width / 2, height);
-  
+
   // Add divider line
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 2;
@@ -165,7 +210,7 @@ export async function captureComparisonScreenshot(
   ctx.moveTo(width / 2, 0);
   ctx.lineTo(width / 2, height);
   ctx.stroke();
-  
+
   // Add labels
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 24px Arial';
@@ -173,18 +218,16 @@ export async function captureComparisonScreenshot(
   ctx.shadowBlur = 4;
   ctx.fillText('Reference', 20, 40);
   ctx.fillText('Compressed', width / 2 + 20, 40);
-  
+
   // Export
-  return new Promise((resolve) => {
-    composite.toBlob((b) => resolve(b!), 'image/png');
-  });
+  return exportCanvasBlob(composite, 'image/png');
 }
 
 /**
  * Download a screenshot blob as a file
  */
 export function downloadScreenshot(
-  blob: Blob, 
+  blob: Blob,
   filename: string
 ): void {
   const url = URL.createObjectURL(blob);
@@ -207,16 +250,16 @@ export async function captureScreenshotWithMetadata(
   options: ScreenshotOptions = {}
 ): Promise<{ blob: Blob; metadata: ScreenshotMetadata }> {
   const cameraDistance = context.camera.position.length();
-  
+
   const fullMetadata: ScreenshotMetadata = {
     ...metadata,
     timestamp: new Date().toISOString(),
     resolution: `${options.width || 1920}x${options.height || 1080}`,
     cameraDistance,
   };
-  
+
   const blob = await captureScreenshot(context, options);
-  
+
   return { blob, metadata: fullMetadata };
 }
 
@@ -241,7 +284,7 @@ export function createScreenshotHandler(
       const context = side === 'A' ? contextA : contextB;
       const format = side === 'A' ? formatA : formatB;
       if (!context) return;
-      
+
       const { blob, metadata } = await captureScreenshotWithMetadata(
         context,
         {
@@ -251,7 +294,7 @@ export function createScreenshotHandler(
           side,
         }
       );
-      
+
       const filename = generateScreenshotFilename(metadata);
       downloadScreenshot(blob, filename);
     }
@@ -271,14 +314,14 @@ export async function captureViewpointSeries(
   onCapture?: (name: string) => void
 ): Promise<Array<{ name: string; blob: Blob; metadata: ScreenshotMetadata }>> {
   const results = [];
-  
+
   for (const viewpoint of viewpoints) {
     // Apply viewpoint
     viewpoint.apply();
-    
+
     // Wait for render
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     // Capture
     const { blob, metadata } = await captureScreenshotWithMetadata(
       context,
@@ -289,15 +332,15 @@ export async function captureViewpointSeries(
         side,
       }
     );
-    
+
     results.push({
       name: viewpoint.name,
       blob,
       metadata,
     });
-    
+
     onCapture?.(viewpoint.name);
   }
-  
+
   return results;
 }

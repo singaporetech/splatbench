@@ -9,27 +9,35 @@ import { useMetrics } from '../../hooks/useMetrics';
 import { useImageQuality } from '../../hooks/useImageQuality';
 import { useCameraSync } from '../../hooks/useCameraSync';
 import { getScenePresets, resetControlsMomentum } from '../../lib/camera/cameraPresets';
-import { captureComparisonScreenshot, generateComparisonFilename, downloadScreenshot } from '../../lib/export/screenshot';
+import { captureComparisonScreenshot, captureScreenshot, generateComparisonFilename, downloadScreenshot } from '../../lib/export/screenshot';
 import { createExportRecord, exportAndDownload } from '../../lib/export/csvExport';
 import { TestPanel } from '../Testing/TestPanel';
+import { ImageComparisonSlider } from '../Comparison/ImageComparisonSlider';
 
 // Scene detection from filename
+interface ComparisonSliderState {
+  imageAUrl: string;
+  imageBUrl: string;
+  labelA: string;
+  labelB: string;
+}
+
 function detectSceneName(filename: string): string | null {
   const knownScenes = ['bonsai', 'garden', 'playroom', 'truck', 'train', 'flower'];
   const lowerFilename = filename.toLowerCase();
-  
+
   for (const scene of knownScenes) {
     if (lowerFilename.includes(scene)) {
       return scene;
     }
   }
-  
+
   // Try to extract base name (remove extension and common suffixes)
   const baseName = filename
     .replace(/\.(ply|splat|ksplat|spz)$/i, '')
     .replace(/-splatfacto$/i, '')
     .replace(/_converted$/i, '');
-  
+
   return baseName || null;
 }
 
@@ -43,7 +51,9 @@ export function AppLayout() {
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [showCameraPresets, setShowCameraPresets] = useState(true);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  const [isCapturingSlider, setIsCapturingSlider] = useState(false);
   const [screenshotStatus, setScreenshotStatus] = useState<string | null>(null);
+  const [comparisonSlider, setComparisonSlider] = useState<ComparisonSliderState | null>(null);
   const [isBatchTesting, setIsBatchTesting] = useState(false);
 
   const metricsA = useMetrics();
@@ -68,6 +78,51 @@ export function AppLayout() {
     enabled: cameraSyncEnabled && !!contextA && !!contextB,
   });
 
+  useEffect(() => {
+    return () => {
+      if (comparisonSlider) {
+        URL.revokeObjectURL(comparisonSlider.imageAUrl);
+        URL.revokeObjectURL(comparisonSlider.imageBUrl);
+      }
+    };
+  }, [comparisonSlider]);
+
+  const handleOpenComparisonSlider = useCallback(async () => {
+    if (!contextA || !contextB) {
+      setScreenshotStatus('Load both splats first');
+      setTimeout(() => setScreenshotStatus(null), 3000);
+      return;
+    }
+
+    setIsCapturingSlider(true);
+    setScreenshotStatus('Preparing slider...');
+
+    try {
+      const [blobA, blobB] = await Promise.all([
+        captureScreenshot(contextA, { width: 1400, height: 1000 }),
+        captureScreenshot(contextB, { width: 1400, height: 1000 }),
+      ]);
+
+      setComparisonSlider({
+        imageAUrl: URL.createObjectURL(blobA),
+        imageBUrl: URL.createObjectURL(blobB),
+        labelA: fileA?.format.toUpperCase().replace('.', '') || 'Reference',
+        labelB: fileB?.format.toUpperCase().replace('.', '') || 'Test',
+      });
+      setScreenshotStatus('Slider ready');
+    } catch (error) {
+      console.error('[ComparisonSlider] Failed:', error);
+      setScreenshotStatus('Slider failed');
+    } finally {
+      setIsCapturingSlider(false);
+      setTimeout(() => setScreenshotStatus(null), 3000);
+    }
+  }, [contextA, contextB, fileA?.format, fileB?.format]);
+
+  const handleCloseComparisonSlider = useCallback(() => {
+    setComparisonSlider(null);
+  }, []);
+
   // Screenshot capture handler (independent of tabs)
   const handleCaptureScreenshot = useCallback(async () => {
     if (!contextA || !contextB) {
@@ -75,10 +130,10 @@ export function AppLayout() {
       setTimeout(() => setScreenshotStatus(null), 3000);
       return;
     }
-    
+
     setIsCapturingScreenshot(true);
     setScreenshotStatus('Capturing...');
-    
+
     try {
       const blob = await captureComparisonScreenshot(contextA, contextB);
       const filename = generateComparisonFilename(currentScene, 'current', new Date().toISOString());
@@ -100,7 +155,7 @@ export function AppLayout() {
       console.warn('[Export] Load both splats first');
       return;
     }
-    
+
     const cameraPos = contextA.camera.position;
     const record = createExportRecord(
       currentScene,
@@ -122,7 +177,7 @@ export function AppLayout() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle if not typing in an input
       if (document.activeElement?.tagName === 'INPUT') return;
-      
+
       // Number keys 1-5 for camera presets
       if (e.key >= '1' && e.key <= '5') {
         const presetIndex = parseInt(e.key) - 1;
@@ -137,43 +192,50 @@ export function AppLayout() {
         }
         return;
       }
-      
+
       // 'C' for screenshot capture
       if (e.key === 'c' || e.key === 'C') {
         console.log('[Keyboard] Capture screenshot');
         handleCaptureScreenshot();
         return;
       }
-      
+
+      // 'B' for before/after image slider
+      if (e.key === 'b' || e.key === 'B') {
+        console.log('[Keyboard] Open A/B slider');
+        handleOpenComparisonSlider();
+        return;
+      }
+
       // 'E' for CSV export (direct download)
       if (e.key === 'e' || e.key === 'E') {
         console.log('[Keyboard] Export CSV');
         handleExportCSV();
         return;
       }
-      
+
       // 'M' for metrics
       if (e.key === 'm' || e.key === 'M') {
         setActiveTab('metrics');
         return;
       }
-      
+
       // 'P' to toggle camera presets
       if (e.key === 'p' || e.key === 'P') {
         setShowCameraPresets(prev => !prev);
         return;
       }
-      
+
       // 'T' for tests tab
       if (e.key === 't' || e.key === 'T') {
         setActiveTab('tests');
         return;
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [contextA, currentScene, handleCaptureScreenshot, handleExportCSV]);
+  }, [contextA, currentScene, handleCaptureScreenshot, handleExportCSV, handleOpenComparisonSlider]);
 
   const handleFileSelectA = (file: GSFile) => {
     metricsA.reset();
@@ -417,6 +479,7 @@ export function AppLayout() {
           <div className="text-xs text-gray-400 hidden lg:block">
             <span className="mr-2">1-5: Viewpoints</span>
             <span className="mr-2">C: Capture</span>
+            <span className="mr-2">B: A/B Slider</span>
             <span className="mr-2">E: CSV Export</span>
             <span className="mr-2">M: Metrics</span>
             <span>T: Tests</span>
@@ -577,10 +640,10 @@ export function AppLayout() {
             <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4" style={{ zIndex: 30 }}>
               <div className="flex flex-col items-end gap-2">
                 {screenshotStatus && (
-                  <div 
+                  <div
                     className="px-3 py-2 rounded-lg text-xs"
-                    style={{ 
-                      backgroundColor: 'rgba(62, 62, 62, 0.95)', 
+                    style={{
+                      backgroundColor: 'rgba(62, 62, 62, 0.95)',
                       color: screenshotStatus.includes('failed') ? '#FF575F' : '#4ADE80',
                       fontFamily: 'Arvo, serif'
                     }}
@@ -603,6 +666,23 @@ export function AppLayout() {
                     <circle cx="12" cy="13" r="4"/>
                   </svg>
                   <span className="hidden md:inline">{isCapturingScreenshot ? 'Capturing...' : 'Screenshot'}</span>
+                </button>
+                <button
+                  onClick={handleOpenComparisonSlider}
+                  disabled={isCapturingSlider || !contextA || !contextB}
+                  className="px-3 py-2 md:px-4 md:py-3 text-white text-xs md:text-sm font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  style={{
+                    backgroundColor: isCapturingSlider ? '#6B7280' : '#B39DFF',
+                    fontFamily: 'Arvo, serif'
+                  }}
+                  title="Open draggable A/B image comparison slider (B)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="3" x2="12" y2="21"/>
+                    <polyline points="8 7 4 12 8 17"/>
+                    <polyline points="16 7 20 12 16 17"/>
+                  </svg>
+                  <span className="hidden md:inline">{isCapturingSlider ? 'Preparing...' : 'A/B Slider'}</span>
                 </button>
                 <button
                   onClick={handleExportCSV}
@@ -690,6 +770,16 @@ export function AppLayout() {
           </div>
         </div>
       </div>
+
+      {comparisonSlider && (
+        <ImageComparisonSlider
+          imageAUrl={comparisonSlider.imageAUrl}
+          imageBUrl={comparisonSlider.imageBUrl}
+          labelA={comparisonSlider.labelA}
+          labelB={comparisonSlider.labelB}
+          onClose={handleCloseComparisonSlider}
+        />
+      )}
     </div>
   );
 }
