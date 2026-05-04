@@ -9,15 +9,13 @@ import { useMetrics } from '../../hooks/useMetrics';
 import { useImageQuality } from '../../hooks/useImageQuality';
 import { useCameraSync } from '../../hooks/useCameraSync';
 import { getScenePresets, resetControlsMomentum } from '../../lib/camera/cameraPresets';
-import { captureComparisonScreenshot, captureScreenshot, generateComparisonFilename, downloadScreenshot } from '../../lib/export/screenshot';
+import { captureComparisonScreenshot, generateComparisonFilename, downloadScreenshot } from '../../lib/export/screenshot';
 import { createExportRecord, exportAndDownload } from '../../lib/export/csvExport';
 import { TestPanel } from '../Testing/TestPanel';
 import { ImageComparisonSlider } from '../Comparison/ImageComparisonSlider';
 
 // Scene detection from filename
 interface ComparisonSliderState {
-  imageAUrl: string;
-  imageBUrl: string;
   labelA: string;
   labelB: string;
 }
@@ -78,16 +76,7 @@ export function AppLayout() {
     enabled: cameraSyncEnabled && !!contextA && !!contextB,
   });
 
-  useEffect(() => {
-    return () => {
-      if (comparisonSlider) {
-        URL.revokeObjectURL(comparisonSlider.imageAUrl);
-        URL.revokeObjectURL(comparisonSlider.imageBUrl);
-      }
-    };
-  }, [comparisonSlider]);
-
-  const handleOpenComparisonSlider = useCallback(async () => {
+  const handleOpenComparisonSlider = useCallback(() => {
     if (!contextA || !contextB) {
       setScreenshotStatus('Load both splats first');
       setTimeout(() => setScreenshotStatus(null), 3000);
@@ -95,28 +84,13 @@ export function AppLayout() {
     }
 
     setIsCapturingSlider(true);
-    setScreenshotStatus('Preparing slider...');
-
-    try {
-      const [blobA, blobB] = await Promise.all([
-        captureScreenshot(contextA, { width: 1400, height: 1000 }),
-        captureScreenshot(contextB, { width: 1400, height: 1000 }),
-      ]);
-
-      setComparisonSlider({
-        imageAUrl: URL.createObjectURL(blobA),
-        imageBUrl: URL.createObjectURL(blobB),
-        labelA: fileA?.format.toUpperCase().replace('.', '') || 'Reference',
-        labelB: fileB?.format.toUpperCase().replace('.', '') || 'Test',
-      });
-      setScreenshotStatus('Slider ready');
-    } catch (error) {
-      console.error('[ComparisonSlider] Failed:', error);
-      setScreenshotStatus('Slider failed');
-    } finally {
-      setIsCapturingSlider(false);
-      setTimeout(() => setScreenshotStatus(null), 3000);
-    }
+    setComparisonSlider({
+      labelA: fileA?.format.toUpperCase().replace('.', '') || 'Reference',
+      labelB: fileB?.format.toUpperCase().replace('.', '') || 'Test',
+    });
+    setScreenshotStatus('Live slider ready');
+    setIsCapturingSlider(false);
+    setTimeout(() => setScreenshotStatus(null), 3000);
   }, [contextA, contextB, fileA?.format, fileB?.format]);
 
   const handleCloseComparisonSlider = useCallback(() => {
@@ -675,7 +649,7 @@ export function AppLayout() {
                     backgroundColor: isCapturingSlider ? '#6B7280' : '#B39DFF',
                     fontFamily: 'Arvo, serif'
                   }}
-                  title="Open draggable A/B image comparison slider (B)"
+                  title="Open draggable live A/B comparison slider (B)"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="3" x2="12" y2="21"/>
@@ -771,10 +745,10 @@ export function AppLayout() {
         </div>
       </div>
 
-      {comparisonSlider && (
+      {comparisonSlider && contextA && contextB && (
         <ImageComparisonSlider
-          imageAUrl={comparisonSlider.imageAUrl}
-          imageBUrl={comparisonSlider.imageBUrl}
+          contextA={contextA}
+          contextB={contextB}
           labelA={comparisonSlider.labelA}
           labelB={comparisonSlider.labelB}
           onClose={handleCloseComparisonSlider}
