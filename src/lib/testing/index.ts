@@ -1,10 +1,3 @@
-/**
- * Testing module barrel export.
- *
- * Import this to get the full test system: types, registry, and
- * all built-in tests auto-registered.
- */
-
 export type {
   Test,
   TestResult,
@@ -24,6 +17,6 @@ export {
   clearRegistry,
 } from './registry';
 
-// Importing test modules triggers auto-registration
+// importing test modules triggers auto-registration
 export { orbitTest, dollyTest, panTest } from './trajectoryTests';
 export { staticQualityTest } from './staticQualityTest';

@@ -17,7 +17,7 @@ import {
 } from './registry';
 import type { Test } from './types';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function makeMockTest(overrides: Partial<Test> & { id: string }): Test {
   return {
@@ -37,7 +37,7 @@ function makeMockTest(overrides: Partial<Test> & { id: string }): Test {
   };
 }
 
-// ─── Tests ──────────────────────────────────────────────────────────────────
+// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Test Registry', () => {
   beforeEach(() => {
@@ -66,10 +66,10 @@ describe('Test Registry', () => {
     expect(getTest('nonexistent')).toBeUndefined();
   });
 
-  // ─── Flat List Behavior ─────────────────────────────────────────────────
+  // ─── Flat List Behavior ────────────────────────────────────────────────────
 
   it('getTests returns a flat array across all categories', () => {
-    // Register tests from different categories (quality, trajectory, etc.)
+    // register tests from different categories
     registerTest(makeMockTest({ id: 'static-quality', category: 'quality', name: 'Static Quality' }));
     registerTest(makeMockTest({ id: 'orbit', category: 'trajectory', name: 'Orbit Trajectory' }));
     registerTest(makeMockTest({ id: 'dolly', category: 'trajectory', name: 'Dolly Trajectory' }));
@@ -77,11 +77,11 @@ describe('Test Registry', () => {
 
     const all = getTests();
 
-    // All tests in a single flat array, not grouped by category
+    // all tests in a single flat array, not grouped by category
     expect(all).toHaveLength(4);
     expect(Array.isArray(all)).toBe(true);
 
-    // Every element is a Test, not a group/section
+    // every element is a test, not a group or section
     for (const t of all) {
       expect(t).toHaveProperty('id');
       expect(t).toHaveProperty('name');
@@ -101,7 +101,7 @@ describe('Test Registry', () => {
     const names = all.map((t) => t.name);
 
     // quality category comes before trajectory alphabetically
-    // Then within each category, sorted by name
+    // then within each category, sorted by name
     expect(names).toEqual(['Static Quality', 'Dolly', 'Orbit', 'Pan']);
   });
 
@@ -117,7 +117,7 @@ describe('Test Registry', () => {
     expect(test!.description.length).toBeGreaterThan(0);
   });
 
-  // ─── Category Queries ───────────────────────────────────────────────────
+  // ─── Category Queries ──────────────────────────────────────────────────────
 
   it('getCategories returns sorted unique category names', () => {
     registerTest(makeMockTest({ id: 't1', category: 'trajectory' }));
@@ -138,7 +138,7 @@ describe('Test Registry', () => {
     expect(getTestsByCategory('stress')).toHaveLength(0);
   });
 
-  // ─── Duplicate Handling ─────────────────────────────────────────────────
+  // ─── Duplicate Handling ────────────────────────────────────────────────────
 
   it('overwrites duplicate test IDs with a warning', () => {
     const original = makeMockTest({ id: 'dup', name: 'Original' });

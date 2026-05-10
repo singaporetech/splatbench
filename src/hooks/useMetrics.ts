@@ -21,7 +21,7 @@ export function useMetrics() {
   });
 
   useEffect(() => {
-    // Update metrics display every 500ms
+    // update metrics display every 500ms
     const interval = setInterval(() => {
       setMetrics(collectorRef.current.getMetrics());
     }, 500);

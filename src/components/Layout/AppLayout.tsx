@@ -14,7 +14,6 @@ import { createExportRecord, exportAndDownload } from '../../lib/export/csvExpor
 import { TestPanel } from '../Testing/TestPanel';
 import { ImageComparisonSlider } from '../Comparison/ImageComparisonSlider';
 
-// Scene detection from filename
 interface ComparisonSliderState {
   labelA: string;
   labelB: string;
@@ -30,7 +29,7 @@ function detectSceneName(filename: string): string | null {
     }
   }
 
-  // Try to extract base name (remove extension and common suffixes)
+  // fall back to the base name with common suffixes removed
   const baseName = filename
     .replace(/\.(ply|splat|ksplat|spz)$/i, '')
     .replace(/-splatfacto$/i, '')
@@ -58,18 +57,16 @@ export function AppLayout() {
   const metricsB = useMetrics();
   const imageQuality = useImageQuality();
 
-  // Detect touch-only devices (phones, tablets without a mouse)
   const isTouchDevice = useMemo(
     () => 'ontouchstart' in window && window.matchMedia('(hover: none)').matches,
     [],
   );
 
-  // Detect scene names from filenames
   const sceneNameA = useMemo(() => detectSceneName(fileA?.name || ''), [fileA?.name]);
   const sceneNameB = useMemo(() => detectSceneName(fileB?.name || ''), [fileB?.name]);
   const currentScene = sceneNameA || sceneNameB || 'unknown';
 
-  // Camera sync: Splat B follows Splat A
+  // Splat B follows Splat A
   useCameraSync({
     sourceContext: contextA,
     targetContext: contextB,
@@ -97,7 +94,6 @@ export function AppLayout() {
     setComparisonSlider(null);
   }, []);
 
-  // Screenshot capture handler (independent of tabs)
   const handleCaptureScreenshot = useCallback(async () => {
     if (!contextA || !contextB) {
       setScreenshotStatus('Load both splats first');
@@ -123,7 +119,6 @@ export function AppLayout() {
     }
   }, [contextA, contextB, currentScene]);
 
-  // CSV export handler
   const handleExportCSV = useCallback(() => {
     if (!contextA || !contextB) {
       console.warn('[Export] Load both splats first');
@@ -146,13 +141,12 @@ export function AppLayout() {
     console.log('[Export] CSV downloaded for', currentScene);
   }, [contextA, contextB, currentScene, fileA, fileB, metricsA.metrics, metricsB.metrics, imageQuality.metrics]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle if not typing in an input
+      // ignore shortcuts while typing in an input
       if (document.activeElement?.tagName === 'INPUT') return;
 
-      // Number keys 1-5 for camera presets
+      // number keys 1-5 apply camera presets
       if (e.key >= '1' && e.key <= '5') {
         const presetIndex = parseInt(e.key) - 1;
         const presets = getScenePresets(currentScene);
@@ -167,40 +161,34 @@ export function AppLayout() {
         return;
       }
 
-      // 'C' for screenshot capture
       if (e.key === 'c' || e.key === 'C') {
         console.log('[Keyboard] Capture screenshot');
         handleCaptureScreenshot();
         return;
       }
 
-      // 'B' for before/after image slider
       if (e.key === 'b' || e.key === 'B') {
         console.log('[Keyboard] Open A/B slider');
         handleOpenComparisonSlider();
         return;
       }
 
-      // 'E' for CSV export (direct download)
       if (e.key === 'e' || e.key === 'E') {
         console.log('[Keyboard] Export CSV');
         handleExportCSV();
         return;
       }
 
-      // 'M' for metrics
       if (e.key === 'm' || e.key === 'M') {
         setActiveTab('metrics');
         return;
       }
 
-      // 'P' to toggle camera presets
       if (e.key === 'p' || e.key === 'P') {
         setShowCameraPresets(prev => !prev);
         return;
       }
 
-      // 'T' for tests tab
       if (e.key === 't' || e.key === 'T') {
         setActiveTab('tests');
         return;
@@ -223,7 +211,6 @@ export function AppLayout() {
     console.log(`[File] Loaded B: ${file.name} (detected scene: ${detectSceneName(file.name)})`);
   };
 
-  // Auto-trigger quality comparison when both files are loaded
   useEffect(() => {
     if (fileA && fileB && contextA && contextB && !isBatchTesting && !imageQuality.isComparing && imageQuality.metrics.psnr === null) {
       const timer = setTimeout(() => {
@@ -239,13 +226,12 @@ export function AppLayout() {
     }
   }, [fileA, fileB, contextA, contextB, isBatchTesting, imageQuality.isComparing, imageQuality.metrics.psnr]);
 
-  // Refs for resolving batch-load promises when viewer context becomes ready
+  // resolve batch-load promises when viewer contexts become ready
   const contextResolverA = useRef<((ctx: SparkViewerContext) => void) | null>(null);
   const contextResolverB = useRef<((ctx: SparkViewerContext) => void) | null>(null);
 
   const handleContextReadyA = useCallback((context: SparkViewerContext) => {
     setContextA(context);
-    // Resolve any pending batch-load promise
     if (contextResolverA.current) {
       contextResolverA.current(context);
       contextResolverA.current = null;
@@ -254,7 +240,6 @@ export function AppLayout() {
 
   const handleContextReadyB = useCallback((context: SparkViewerContext) => {
     setContextB(context);
-    // Resolve any pending batch-load promise
     if (contextResolverB.current) {
       contextResolverB.current(context);
       contextResolverB.current = null;
@@ -269,15 +254,12 @@ export function AppLayout() {
   const handleBatchLoadRef = useCallback(
     (file: GSFile): Promise<SparkViewerContext | null> => {
       return new Promise<SparkViewerContext | null>((resolve) => {
-        // Clear stale state
         metricsA.reset();
         imageQuality.reset();
         setContextA(null);
 
-        // Register resolver — will be called by handleContextReadyA
         contextResolverA.current = resolve;
 
-        // Trigger the viewer to load the new file
         setFileA(file);
         console.log(`[Batch] Loading ref: ${file.name}`);
       });
@@ -327,7 +309,7 @@ export function AppLayout() {
 
   const handleTabClick = useCallback((tab: 'metrics' | 'tests') => {
     if (tab === activeTab) {
-      // Toggle panel open/closed on mobile when clicking the active tab
+      // toggle panel open/closed on mobile when clicking the active tab
       setMobilePanelOpen(prev => !prev);
     } else {
       setActiveTab(tab);
@@ -374,7 +356,6 @@ export function AppLayout() {
     }
   };
 
-  // Update resolution on window resize for both viewers
   useEffect(() => {
     const updateResolution = () => {
       const canvases = document.querySelectorAll('canvas[data-engine="three.js r182"]');
@@ -398,7 +379,7 @@ export function AppLayout() {
 
   return (
     <div className="flex flex-col bg-gray-900" style={{ height: '100dvh' }}>
-      {/* Hidden file inputs */}
+      {/* hidden file inputs */}
       <input
         id="file-input-A"
         type="file"
@@ -442,14 +423,14 @@ export function AppLayout() {
         className="hidden"
       />
 
-      {/* Header */}
+      {/* header */}
       <header className="px-3 py-2 md:px-6 md:py-4 flex items-center justify-between shadow-lg" style={{ backgroundColor: '#3E3E3E', borderBottom: '1px solid #555', fontFamily: 'Arvo, serif' }}>
         <div>
           <h1 className="text-lg md:text-3xl tracking-tight" style={{ color: '#B39DFF', fontFamily: 'Arvo, serif' }}>SplatBench</h1>
           <p className="text-xs mt-1 hidden md:block" style={{ color: '#FFACBF', fontFamily: 'Arvo, serif' }}>3D Gaussian Splatting Benchmark</p>
         </div>
         <div className="flex items-center gap-4">
-          {/* Keyboard shortcuts hint */}
+          {/* keyboard shortcuts hint */}
           <div className="text-xs text-gray-400 hidden lg:block">
             <span className="mr-2">1-5: Viewpoints</span>
             <span className="mr-2">C: Capture</span>
@@ -470,13 +451,13 @@ export function AppLayout() {
         </div>
       </header>
 
-      {/* Main Content */}
+        {/* main content */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Split Viewer Area */}
+          {/* split viewer area */}
         <div className="flex-1 flex flex-col md:flex-row relative">
-          {/* Splat A */}
+            {/* Splat A */}
           <div className="flex-1 relative min-h-0 overflow-hidden viewer-a-pane">
-            {/* File info top-left */}
+              {/* file info top-left */}
             <div className="absolute top-2 left-2 md:top-4 md:left-4 z-20">
               <div className="px-2 py-1.5 md:px-3 md:py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
                 <div className="text-xs md:text-sm font-semibold mb-0.5" style={{ color: '#B39DFF' }}>Reference</div>
@@ -490,7 +471,7 @@ export function AppLayout() {
                 )}
               </div>
             </div>
-            {/* Change button top-right */}
+            {/* change button top-right */}
             {fileA && (
               <div className="absolute top-2 right-2 md:top-4 md:right-4 z-20">
                 <button
@@ -503,7 +484,7 @@ export function AppLayout() {
                 </button>
               </div>
             )}
-            {/* Camera Presets for A (hidden on mobile to save space) */}
+            {/* camera presets for A */}
             {fileA && showCameraPresets && (
               <div className="absolute top-24 left-4 z-20 hidden md:block">
                 <CameraPresetPanel
@@ -529,9 +510,9 @@ export function AppLayout() {
             )}
           </div>
 
-          {/* Splat B */}
+            {/* Splat B */}
           <div className="flex-1 relative min-h-0 overflow-hidden">
-            {/* File info top-left */}
+              {/* file info top-left */}
             <div className="absolute top-2 left-2 md:top-4 md:left-4 z-20">
               <div className="px-2 py-1.5 md:px-3 md:py-2 rounded-lg" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', fontFamily: 'Arvo, serif' }}>
                 <div className="text-xs md:text-sm font-semibold mb-0.5" style={{ color: '#FFACBF' }}>Test</div>
@@ -545,7 +526,7 @@ export function AppLayout() {
                 )}
               </div>
             </div>
-            {/* Change button top-right */}
+            {/* change button top-right */}
             {fileB && (
               <div className="absolute top-2 right-2 md:top-4 md:right-4 z-20">
                 <button
@@ -558,7 +539,7 @@ export function AppLayout() {
                 </button>
               </div>
             )}
-            {/* Camera Presets for B (hidden on mobile to save space) */}
+            {/* camera presets for B */}
             {fileB && showCameraPresets && (
               <div className="absolute top-24 left-4 z-20 hidden md:block">
                 <CameraPresetPanel
@@ -584,7 +565,7 @@ export function AppLayout() {
             )}
           </div>
 
-          {/* Navigation Controls (legend hidden on mobile) */}
+          {/* navigation controls */}
           {(fileA || fileB) && (
             <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 space-y-3" style={{ zIndex: 30 }}>
               <div className="px-4 py-3 rounded-lg text-xs hidden md:block" style={{ backgroundColor: 'rgba(62, 62, 62, 0.9)', color: '#FDFDFB', fontFamily: 'Arvo, serif' }}>
@@ -609,7 +590,7 @@ export function AppLayout() {
             </div>
           )}
 
-          {/* Screenshot Button - Independent of tabs */}
+          {/* screenshot controls */}
           {(fileA && fileB) && (
             <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4" style={{ zIndex: 30 }}>
               <div className="flex flex-col items-end gap-2">
@@ -680,14 +661,14 @@ export function AppLayout() {
           )}
         </div>
 
-        {/* Right Panel - Tabbed Interface (collapsible on mobile) */}
+        {/* right panel */}
         <div
           className={`w-full lg:w-80 flex flex-col border-t lg:border-t-0 lg:border-l border-gray-600 ${
             mobilePanelOpen ? 'max-h-[50vh]' : ''
           } md:max-h-[40vh] lg:max-h-none`}
           style={{ borderColor: '#444' }}
         >
-          {/* Tab Navigation */}
+          {/* tab navigation */}
           <div className="flex border-b border-gray-600 min-w-0" style={{ backgroundColor: "#3E3E3E" }}>
             {(['metrics', 'tests'] as const).map((tab) => (
               <button
@@ -704,7 +685,7 @@ export function AppLayout() {
                 }}
               >
                 <span className="truncate">{tab === "metrics" ? "Metrics" : "Tests"}</span>
-                {/* Show collapse indicator on mobile */}
+                {/* collapse indicator on mobile */}
                 {tab === activeTab && (
                   <span className="shrink-0 md:hidden" aria-hidden="true">{mobilePanelOpen ? "\u25B2" : "\u25BC"}</span>
                 )}
@@ -712,7 +693,7 @@ export function AppLayout() {
             ))}
           </div>
 
-          {/* Panel Content (hidden on mobile when collapsed) */}
+          {/* panel content */}
           <div
             className={`flex-1 overflow-y-auto ${mobilePanelOpen ? 'block' : 'hidden'} md:block`}
             style={{ backgroundColor: '#3E3E3E' }}

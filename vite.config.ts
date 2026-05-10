@@ -4,9 +4,9 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: command === 'build' ? '/splatbench/' : '/', // GitHub Pages base path only for production
+  base: command === 'build' ? '/splatbench/' : '/',
   server: {
-    // Add your dev hostnames here if running behind a tunnel or LAN.
+    // add dev hostnames here when running behind a tunnel or LAN
     allowedHosts: ['localhost'],
   },
 }))

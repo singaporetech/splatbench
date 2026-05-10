@@ -1,28 +1,20 @@
-/**
- * Batch Testing System for SplatBench
- * 
- * Enables automated, unattended benchmarking of multiple scenes,
- * formats, and viewpoints. Supports both standard test suites and
- * custom researcher-defined configurations.
- */
-
 import type { ViewpointPreset } from '../camera/cameraPresets';
 import type { ImageQualityMetrics } from '../../types';
 
 export interface BatchTestConfig {
-  // Identification
+  // identification
   testName: string;
   description?: string;
   
-  // Test matrix
+  // test matrix
   scenes: BatchSceneConfig[];
-  referenceFormat: string;  // e.g., 'ply'
-  testFormats: string[];    // e.g., ['splat', 'ksplat', 'spz']
+  referenceFormat: string;
+  testFormats: string[];
   viewpoints: ViewpointPreset[];
   
-  // Options
-  replicates: number;       // Number of captures per configuration
-  delayBetweenCaptures: number; // ms to wait between captures
+  // options
+  replicates: number;
+  delayBetweenCaptures: number;
   captureQualityMetrics: boolean;
   capturePerformanceMetrics: boolean;
   captureScreenshots: boolean;
@@ -30,35 +22,34 @@ export interface BatchTestConfig {
 
 export interface BatchSceneConfig {
   sceneName: string;
-  referenceFile: string;    // Path/URL to reference file
-  testFiles: Record<string, string>;  // format -> path
+  referenceFile: string;
+  testFiles: Record<string, string>;
 }
 
 export interface BatchResult {
-  // Identification
+  // identification
   testId: string;
   timestamp: string;
   
-  // Configuration
+  // configuration
   sceneName: string;
   testFormat: string;
   viewpointName: string;
   replicateNumber: number;
   
-  // Quality metrics
+  // quality metrics
   qualityMetrics?: ImageQualityMetrics;
   
-  // Performance metrics
+  // performance metrics
   loadTimeMs?: number;
   fps?: number;
   fps1PercentLow?: number;
   memoryMB?: number;
   frameTimeVariance?: number;
   
-  // Screenshot
   screenshotPath?: string;
   
-  // Metadata
+  // metadata
   browserInfo: {
     name: string;
     version: string;
@@ -75,17 +66,12 @@ export interface BatchProgress {
     viewpoint: string;
     replicate: number;
   };
-  estimatedTimeRemaining: number; // seconds
+  estimatedTimeRemaining: number;
 }
 
-/**
- * Predefined test templates for common use cases
- */
 export const BATCH_TEMPLATES = {
   /**
-   * Quick Check - Fast validation of 1-2 scenes
-   * For iterative development and smoke testing
-   * Takes ~2-5 minutes
+   * Fast validation of 1-2 scenes, usually 2-5 minutes
    */
   quickValidation: {
     name: 'Quick Check',
@@ -99,7 +85,7 @@ export const BATCH_TEMPLATES = {
       scenes: [],
       referenceFormat: 'ply',
       testFormats: ['splat', 'spz'],
-      viewpoints: [], // Will use front and close-up only
+      viewpoints: [],
       replicates: 1,
       delayBetweenCaptures: 200,
       captureQualityMetrics: true,
@@ -109,9 +95,7 @@ export const BATCH_TEMPLATES = {
   },
 
   /**
-   * Format Comparison - Compare all formats on selected scenes
-   * Good for evaluating compression quality vs file size tradeoffs
-   * Takes ~10-20 minutes
+   * Format comparison across selected scenes, usually 10-20 minutes
    */
   formatComparison: {
     name: 'Format Comparison',
@@ -125,7 +109,7 @@ export const BATCH_TEMPLATES = {
       scenes: [],
       referenceFormat: 'ply',
       testFormats: ['splat', 'ksplat', 'spz'],
-      viewpoints: [], // Front, close-up, wide
+      viewpoints: [],
       replicates: 2,
       delayBetweenCaptures: 500,
       captureQualityMetrics: true,
@@ -135,9 +119,7 @@ export const BATCH_TEMPLATES = {
   },
 
   /**
-   * Full Benchmark - Complete 6-scene evaluation
-   * For paper submissions and comprehensive analysis
-   * Takes ~1-2 hours
+   * Complete 6-scene benchmark, usually 1-2 hours
    */
   paperEvaluation: {
     name: 'Full Benchmark',
@@ -148,10 +130,10 @@ export const BATCH_TEMPLATES = {
     defaultReplicates: 3,
     defaultConfig: {
       testName: 'paper-evaluation',
-      scenes: [], // To be populated based on available scenes
+      scenes: [],
       referenceFormat: 'ply',
       testFormats: ['splat', 'ksplat', 'spz'],
-      viewpoints: [], // Will use STANDARD_VIEWPOINTS
+      viewpoints: [],
       replicates: 3,
       delayBetweenCaptures: 500,
       captureQualityMetrics: true,
@@ -161,8 +143,7 @@ export const BATCH_TEMPLATES = {
   },
   
   /**
-   * Performance Profiling - Focus on FPS and memory metrics
-   * More replicates for stable measurements, quality metrics optional
+   * FPS and memory profiling with additional replicates
    */
   performanceProfiling: {
     name: 'Performance Focus',
@@ -176,8 +157,8 @@ export const BATCH_TEMPLATES = {
       scenes: [],
       referenceFormat: 'ply',
       testFormats: ['splat', 'ksplat', 'spz'],
-      viewpoints: [], // Just front and wide view
-      replicates: 5, // More replicates for stable FPS measurements
+      viewpoints: [],
+      replicates: 5,
       delayBetweenCaptures: 1000,
       captureQualityMetrics: false,
       capturePerformanceMetrics: true,
@@ -186,21 +167,20 @@ export const BATCH_TEMPLATES = {
   },
 
   /**
-   * Single Format Deep Dive - Evaluate one format across all scenes
-   * Useful for validating a specific compression method
+   * Single-format evaluation across all scenes
    */
   singleFormat: {
     name: 'Single Format',
     description: 'Deep evaluation of one format across all scenes. ~20-40 min.',
     defaultScenes: ['bonsai', 'garden', 'playroom', 'truck', 'train', 'flower'],
-    defaultFormats: ['spz'], // User should select
+    defaultFormats: ['spz'],
     viewpointCount: 5,
     defaultReplicates: 3,
     defaultConfig: {
       testName: 'single-format',
       scenes: [],
       referenceFormat: 'ply',
-      testFormats: [], // Specify when creating
+      testFormats: [],
       viewpoints: [],
       replicates: 3,
       delayBetweenCaptures: 500,
@@ -211,9 +191,6 @@ export const BATCH_TEMPLATES = {
   },
 };
 
-/**
- * Calculate total number of tests in a batch
- */
 export function calculateTotalTests(config: BatchTestConfig): number {
   return config.scenes.length * 
          config.testFormats.length * 
@@ -221,10 +198,6 @@ export function calculateTotalTests(config: BatchTestConfig): number {
          config.replicates;
 }
 
-/**
- * Generate a test queue from configuration
- * Returns ordered list of all tests to run
- */
 export function generateTestQueue(config: BatchTestConfig): Array<{
   scene: BatchSceneConfig;
   format: string;
@@ -251,13 +224,9 @@ export function generateTestQueue(config: BatchTestConfig): Array<{
   return queue;
 }
 
-/**
- * Export batch results to CSV
- */
 export function exportBatchToCSV(results: BatchResult[]): string {
   if (results.length === 0) return '';
   
-  // Define columns
   const columns = [
     'timestamp',
     'testId',
@@ -277,10 +246,8 @@ export function exportBatchToCSV(results: BatchResult[]): string {
     'gpu',
   ];
   
-  // Header
   let csv = columns.join(',') + '\n';
   
-  // Rows
   for (const result of results) {
     const row = [
       result.timestamp,
@@ -306,9 +273,6 @@ export function exportBatchToCSV(results: BatchResult[]): string {
   return csv;
 }
 
-/**
- * Generate summary statistics from batch results
- */
 export function generateBatchSummary(results: BatchResult[]) {
   const scenes = [...new Set(results.map(r => r.sceneName))];
   const formats = [...new Set(results.map(r => r.testFormat))];
@@ -358,10 +322,6 @@ function calculateStd(values: number[]): number {
   return Math.sqrt(avgSquaredDiff);
 }
 
-/**
- * Batch test runner class
- * Manages the execution of a batch test queue
- */
 export class BatchTestRunner {
   private config: BatchTestConfig;
   private queue: ReturnType<typeof generateTestQueue>;
@@ -370,7 +330,7 @@ export class BatchTestRunner {
   private isRunning = false;
   private abortController = new AbortController();
   
-  // Callbacks
+  // callbacks
   onProgress?: (progress: BatchProgress) => void;
   onTestComplete?: (result: BatchResult) => void;
   onComplete?: (results: BatchResult[]) => void;
@@ -381,9 +341,6 @@ export class BatchTestRunner {
     this.queue = generateTestQueue(config);
   }
   
-  /**
-   * Start the batch test
-   */
   async start(): Promise<BatchResult[]> {
     if (this.isRunning) {
       throw new Error('Batch test already running');
@@ -397,7 +354,6 @@ export class BatchTestRunner {
     const startTime = Date.now();
     
     for (let i = 0; i < this.queue.length; i++) {
-      // Check for abort
       if (this.abortController.signal.aborted) {
         break;
       }
@@ -405,7 +361,6 @@ export class BatchTestRunner {
       this.currentIndex = i;
       const test = this.queue[i];
       
-      // Report progress
       const elapsed = (Date.now() - startTime) / 1000;
       const avgTimePerTest = elapsed / (i + 1);
       const remaining = (this.queue.length - i - 1) * avgTimePerTest;
@@ -423,18 +378,15 @@ export class BatchTestRunner {
       });
       
       try {
-        // Execute test (this would be implemented with actual viewer integration)
         const result = await this.executeTest(test);
         this.results.push(result);
         this.onTestComplete?.(result);
         
-        // Delay before next test
         if (i < this.queue.length - 1) {
           await this.delay(this.config.delayBetweenCaptures);
         }
       } catch (error) {
         this.onError?.(error as Error);
-        // Continue with next test
       }
     }
     
@@ -443,17 +395,11 @@ export class BatchTestRunner {
     return this.results;
   }
   
-  /**
-   * Stop the batch test
-   */
   stop(): void {
     this.abortController.abort();
     this.isRunning = false;
   }
   
-  /**
-   * Get current progress
-   */
   getProgress(): BatchProgress {
     return {
       totalTests: this.queue.length,
@@ -471,21 +417,9 @@ export class BatchTestRunner {
   }
   
   /**
-   * Execute a single test
-   * This is a placeholder - actual implementation would integrate with viewer
+   * Temporary runner stub until viewer integration is wired in
    */
   private async executeTest(test: typeof this.queue[0]): Promise<BatchResult> {
-    // Placeholder implementation
-    // Actual implementation would:
-    // 1. Load reference file
-    // 2. Load test file
-    // 3. Apply camera preset
-    // 4. Wait for stabilization
-    // 5. Capture quality metrics
-    // 6. Capture performance metrics
-    // 7. Take screenshot
-    // 8. Return result
-    
     return {
       testId: `${test.scene.sceneName}_${test.format}_${test.viewpoint.id}_r${test.replicate}`,
       timestamp: new Date().toISOString(),

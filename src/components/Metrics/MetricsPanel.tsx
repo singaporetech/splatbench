@@ -37,7 +37,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
   const formatDelta = (a: number, b: number, showEqualForIdentical: boolean = false) => {
     if (b === 0) return 'N/A';
     const delta = ((a - b) / b) * 100;
-    // Show "=" when values are identical and showEqualForIdentical is true
+    // show "=" when values are identical and showEqualForIdentical is true
     if (showEqualForIdentical && Math.abs(delta) < 0.01) return '=';
     const sign = delta > 0 ? '+' : '';
     return `${sign}${formatNumber(delta, 1)}%`;
@@ -56,7 +56,6 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
   };
 
   if (!showComparison) {
-    // Show only Splat A metrics when only one file is loaded
     const metrics = metricsA.fps > 0 ? metricsA : metricsB;
     const side = metricsA.fps > 0 ? 'A' : 'B';
 
@@ -67,7 +66,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
             Splat {side} Metrics
           </h2>
 
-          {/* Basic Performance */}
+          {/* basic performance */}
           <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Basic</h3>
             <div className="space-y-2">
@@ -94,7 +93,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
             </div>
           </div>
 
-        {/* Stability Metrics */}
+        {/* stability metrics */}
         {metrics.frameTimeVariance > 0 && (
           <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Stability</h3>
@@ -122,7 +121,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
           </div>
         )}
 
-        {/* Percentiles */}
+        {/* percentiles */}
         {metrics.frameTimeP50 > 0 && (
           <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Percentiles</h3>
@@ -148,7 +147,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
           </div>
         )}
 
-        {/* File Info */}
+        {/* file info */}
         {(metrics.loadTime > 0 || metrics.splatCount > 0) && (
           <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>File Info</h3>
@@ -198,7 +197,6 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
     );
   }
 
-  // Comparison view when both files are loaded
   return (
     <div className="w-full h-full overflow-y-auto overflow-x-visible" style={{ backgroundColor: '#3E3E3E', color: '#FDFDFB', fontFamily: 'Arvo, serif' }}>
       <div className="px-4 py-4 md:px-10 md:py-8">
@@ -206,7 +204,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
           Comparison
         </h2>
 
-        {/* Quality Comparison (PSNR/SSIM) - MOVED TO TOP */}
+        {/* quality comparison */}
         {qualityMetrics && (qualityMetrics.psnr !== null || qualityMetrics.ssim !== null || qualityMetrics.error) && (
           <div className="mb-4 md:mb-8">
             <div className="flex items-center justify-between mb-4">
@@ -267,7 +265,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
           </div>
         )}
 
-        {/* Basic Performance Comparison */}
+        {/* basic performance comparison */}
         <div className="mb-4 md:mb-8">
           <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Basic</h3>
           <div className="space-y-4">
@@ -302,7 +300,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
           </div>
         </div>
 
-        {/* Stability Comparison */}
+        {/* stability comparison */}
         {(metricsA.frameTimeVariance > 0 || metricsB.frameTimeVariance > 0) && (
           <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>Stability</h3>
@@ -328,7 +326,7 @@ export function MetricsPanel({ metricsA, metricsB, showComparison, qualityMetric
           </div>
         )}
 
-        {/* File Info Comparison */}
+        {/* file info comparison */}
         {(metricsA.splatCount > 0 || metricsB.splatCount > 0) && (
           <div className="mb-4 md:mb-8">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wide" style={{ color: '#FFACBF' }}>File Info</h3>
@@ -384,7 +382,7 @@ function MetricItem({ label, value, color = '#FDFDFB', tooltip }: MetricItemProp
   const [showTooltip, setShowTooltip] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Tap-outside-to-dismiss for touch devices
+  // tap outside to dismiss on touch devices
   useEffect(() => {
     if (!showTooltip) return;
     const handleOutside = (e: Event) => {
@@ -415,7 +413,7 @@ function MetricItem({ label, value, color = '#FDFDFB', tooltip }: MetricItemProp
       </div>
       <span className="font-mono font-semibold text-lg" style={{ color }}>{value}</span>
 
-      {/* Tooltip */}
+      {/* tooltip */}
       {showTooltip && tooltip && (
         <div
           className="absolute left-0 right-0 p-3 rounded-lg shadow-lg text-xs leading-relaxed"
@@ -448,7 +446,7 @@ function ComparisonMetricItem({ label, valueA, valueB, delta, deltaColor, toolti
   const [showTooltip, setShowTooltip] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Tap-outside-to-dismiss for touch devices
+  // tap outside to dismiss on touch devices
   useEffect(() => {
     if (!showTooltip) return;
     const handleOutside = (e: Event) => {
@@ -489,7 +487,7 @@ function ComparisonMetricItem({ label, valueA, valueB, delta, deltaColor, toolti
         <div className="font-mono font-semibold" style={{ color: deltaColor }}>{delta}</div>
       </div>
 
-      {/* Tooltip */}
+      {/* tooltip */}
       {showTooltip && tooltip && (
         <div
           className="absolute left-0 right-0 p-3 rounded-lg shadow-lg text-xs leading-relaxed"

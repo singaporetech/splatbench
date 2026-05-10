@@ -19,43 +19,37 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
 
   const { splatMesh, loading, error, loadProgress, loadFile, cleanup } = useGSLoader();
 
-  // Setup Three.js scene and load splat
   useEffect(() => {
     if (!gsFile || !containerRef.current) return;
 
     const container = containerRef.current;
     
-    // Create renderer
     const renderer = new THREE.WebGLRenderer({
-      antialias: false, // Spark recommends false for performance
-      preserveDrawingBuffer: true, // Required for quality metrics capture
+      antialias: false,
+      preserveDrawingBuffer: true,
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
-    // Create scene
     const scene = new THREE.Scene();
-    scene.background = null; // Use default Spark background
+    scene.background = null;
 
-    // Create camera
     const camera = new THREE.PerspectiveCamera(
-      60, // FOV
+      60,
       container.clientWidth / container.clientHeight,
       0.1,
       1000
     );
-    camera.position.set(0, 0, 5); // Start closer to splat
-    camera.up.set(0, -1, 0); // Flip Y-axis for correct orientation
+    camera.position.set(0, 0, 5);
+    camera.up.set(0, -1, 0);
 
-    // Create controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.target.set(0, 0, 0);
     controls.update();
 
-    // Create viewer context
     const forceRender = () => {
       renderer.render(scene, camera);
       const gl = renderer.getContext();
@@ -74,14 +68,12 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
 
     contextRef.current = context;
 
-    // Load the splat file
     loadFile(gsFile, (loadTime, splatCount) => {
       if (onLoadComplete) {
         onLoadComplete(loadTime, splatCount);
       }
     });
 
-    // Handle window resize
     const handleResize = () => {
       if (!container) return;
       
@@ -95,7 +87,6 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
 
     window.addEventListener('resize', handleResize);
 
-    // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
       
@@ -115,7 +106,6 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
     };
   }, [gsFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Add splat mesh to scene when loaded
   useEffect(() => {
     if (!splatMesh || !contextRef.current) return;
 
@@ -125,7 +115,6 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
 
     console.log('SplatMesh added to scene');
 
-    // Notify parent that viewer is ready
     if (onViewerReady) {
       onViewerReady(context);
     }
@@ -137,7 +126,6 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
     };
   }, [splatMesh, onViewerReady]);
 
-  // Render loop
   useEffect(() => {
     if (!contextRef.current || !splatMesh) return;
 
@@ -148,13 +136,10 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
       const currentTime = performance.now();
       const frameInterval = currentTime - lastFrameTimeRef.current;
 
-      // Update controls
       context.controls.update();
 
-      // Render scene
       context.renderer.render(context.scene, context.camera);
 
-      // Report frame time
       if (onFrameUpdate) {
         onFrameUpdate(frameInterval);
       }
@@ -178,13 +163,13 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
       className="bg-gray-900"
       style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
     >
-      {/* Viewer container */}
+      {/* viewer container */}
       <div
         ref={containerRef}
         style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
       />
 
-      {/* Loading UI */}
+      {/* loading UI */}
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-95" style={{ zIndex: 10 }}>
           <div className="text-center max-w-md px-12">
@@ -198,7 +183,7 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
               {gsFile && <div className="text-sm mb-8 text-gray-400">{gsFile.name}</div>}
             </div>
 
-            {/* Progress bar */}
+            {/* progress bar */}
             <div className="w-full">
               <div className="rounded-full h-3 mb-4 overflow-hidden bg-gray-700 bg-opacity-40">
                 <div
@@ -212,7 +197,7 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
         </div>
       )}
 
-      {/* Error UI */}
+      {/* error UI */}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-95" style={{ zIndex: 10 }}>
           <div className="bg-red-900 bg-opacity-50 border border-red-600 rounded-xl p-8 max-w-md mx-4">
@@ -227,7 +212,7 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
         </div>
       )}
 
-      {/* No file loaded */}
+      {/* no file loaded */}
       {!gsFile && !loading && !error && (
         <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 10 }}>
           <div className="text-gray-400 text-lg">No file loaded</div>

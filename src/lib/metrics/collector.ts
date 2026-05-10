@@ -2,7 +2,7 @@ import type { BenchmarkMetrics } from '../../types';
 
 export class MetricsCollector {
   private frameTimes: number[] = [];
-  private maxFrames = 300; // Track last 300 frames (~5 seconds at 60fps)
+  private maxFrames = 300;
   private loadTime: number = 0;
   private fileSize: number = 0;
   private splatCount: number = 0;
@@ -48,7 +48,6 @@ export class MetricsCollector {
     return 0;
   }
 
-  // Calculate standard deviation of frame times
   getFrameTimeVariance(): number {
     if (this.frameTimes.length < 2) return 0;
     const mean = this.getFrameTime();
@@ -57,7 +56,6 @@ export class MetricsCollector {
     return Math.sqrt(avgSquareDiff);
   }
 
-  // Get percentile of frame times
   getPercentile(percentile: number): number {
     if (this.frameTimes.length === 0) return 0;
     const sorted = [...this.frameTimes].sort((a, b) => a - b);
@@ -65,21 +63,21 @@ export class MetricsCollector {
     return sorted[Math.max(0, index)];
   }
 
-  // Get 1% low FPS (average of worst 1% of frames)
+  // average FPS of the worst 1% of frames
   get1PercentLow(): number {
     if (this.frameTimes.length === 0) return 0;
-    const sorted = [...this.frameTimes].sort((a, b) => b - a); // Sort descending (worst first)
-    const count = Math.max(1, Math.ceil(sorted.length * 0.01)); // At least 1 frame
+    const sorted = [...this.frameTimes].sort((a, b) => b - a);
+    const count = Math.max(1, Math.ceil(sorted.length * 0.01));
     const worst = sorted.slice(0, count);
     const avgWorst = worst.reduce((a, b) => a + b, 0) / worst.length;
     return avgWorst > 0 ? 1000 / avgWorst : 0;
   }
 
-  // Get 0.1% low FPS (average of worst 0.1% of frames)
+  // average FPS of the worst 0.1% of frames
   get01PercentLow(): number {
     if (this.frameTimes.length === 0) return 0;
-    const sorted = [...this.frameTimes].sort((a, b) => b - a); // Sort descending (worst first)
-    const count = Math.max(1, Math.ceil(sorted.length * 0.001)); // At least 1 frame
+    const sorted = [...this.frameTimes].sort((a, b) => b - a);
+    const count = Math.max(1, Math.ceil(sorted.length * 0.001));
     const worst = sorted.slice(0, count);
     const avgWorst = worst.reduce((a, b) => a + b, 0) / worst.length;
     return avgWorst > 0 ? 1000 / avgWorst : 0;
@@ -95,7 +93,7 @@ export class MetricsCollector {
       splatCount: this.splatCount,
       resolution: this.resolution,
 
-      // Performance stability metrics
+      // performance stability metrics
       frameTimeVariance: Math.round(this.getFrameTimeVariance() * 100) / 100,
       fps1PercentLow: Math.round(this.get1PercentLow() * 10) / 10,
       fps01PercentLow: Math.round(this.get01PercentLow() * 10) / 10,

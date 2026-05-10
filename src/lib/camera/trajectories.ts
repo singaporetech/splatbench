@@ -1,75 +1,51 @@
-/**
- * Camera Trajectory System for SplatBench
- *
- * Defines standardized camera trajectories for reproducible quality evaluation
- * along continuous camera paths. Supports orbit, dolly, and pan trajectories
- * with configurable parameters.
- *
- * Phase 1 of the interactive quality metrics research plan.
- * See: docs/interactive-quality-metrics-research.md
- */
-
 import * as THREE from 'three';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export type TrajectoryType = 'orbit' | 'dolly' | 'pan';
 
 export interface TrajectoryConfig {
   type: TrajectoryType;
-  /** Number of frames to generate along the trajectory */
   frameCount: number;
-  /** Duration in seconds for full playback at 30 fps */
   durationSeconds: number;
-  /** Scene center to orbit around / dolly toward / pan across */
   center: { x: number; y: number; z: number };
-  /** Starting camera distance from center (used for orbit and dolly start) */
   startDistance: number;
 }
 
 export interface OrbitConfig extends TrajectoryConfig {
   type: 'orbit';
-  /** Azimuthal arc in degrees (e.g., 360 for full orbit, 90 for quarter) */
+  /** Azimuthal arc in degrees */
   arcDegrees: number;
-  /** Elevation angle in degrees above horizontal plane */
   elevationDegrees: number;
-  /** Starting azimuth angle in degrees */
   startAzimuthDegrees: number;
 }
 
 export interface DollyConfig extends TrajectoryConfig {
   type: 'dolly';
-  /** End distance from center (camera moves from startDistance to endDistance) */
   endDistance: number;
 }
 
 export interface PanConfig extends TrajectoryConfig {
   type: 'pan';
-  /** Lateral sweep distance in scene units (total, split evenly left/right) */
+  /** Lateral sweep distance in scene units, split evenly left/right */
   sweepDistance: number;
-  /** Pan height offset from center */
   heightOffset: number;
 }
 
 export interface TrajectoryKeyframe {
-  /** Frame index (0-based) */
   frameIndex: number;
-  /** Normalized progress along trajectory [0, 1] */
   t: number;
-  /** Camera position */
   position: THREE.Vector3;
-  /** Camera look-at target */
   target: THREE.Vector3;
 }
 
 export interface TrajectoryResult {
   config: TrajectoryConfig;
   keyframes: TrajectoryKeyframe[];
-  /** Human-readable description */
   description: string;
 }
 
-// ─── Default Configurations ─────────────────────────────────────────────────
+// ─── Default Configurations ──────────────────────────────────────────────────
 
 export const DEFAULT_ORBIT_CONFIG: OrbitConfig = {
   type: 'orbit',
@@ -101,11 +77,10 @@ export const DEFAULT_PAN_CONFIG: PanConfig = {
   heightOffset: 0,
 };
 
-// ─── Trajectory Generators ──────────────────────────────────────────────────
+// ─── Trajectory Generators ───────────────────────────────────────────────────
 
 /**
- * Generate an orbit trajectory: camera sweeps azimuthally around the scene center
- * at a fixed elevation and distance.
+ * Camera sweeps azimuthally around the scene center at fixed elevation and distance
  */
 export function generateOrbitTrajectory(config: OrbitConfig): TrajectoryResult {
   const keyframes: TrajectoryKeyframe[] = [];
@@ -142,8 +117,7 @@ export function generateOrbitTrajectory(config: OrbitConfig): TrajectoryResult {
 }
 
 /**
- * Generate a dolly trajectory: camera moves along the view axis toward or away
- * from the scene center.
+ * Camera moves along the view axis toward or away from the scene center
  */
 export function generateDollyTrajectory(config: DollyConfig): TrajectoryResult {
   const keyframes: TrajectoryKeyframe[] = [];
@@ -151,11 +125,10 @@ export function generateDollyTrajectory(config: DollyConfig): TrajectoryResult {
 
   for (let i = 0; i < config.frameCount; i++) {
     const t = config.frameCount > 1 ? i / (config.frameCount - 1) : 0;
-    // Smooth ease-in-out via cosine interpolation
+    // cosine interpolation gives a smooth ease-in-out
     const smoothT = 0.5 * (1 - Math.cos(Math.PI * t));
     const distance = config.startDistance + (config.endDistance - config.startDistance) * smoothT;
 
-    // Dolly straight along Z axis toward center
     keyframes.push({
       frameIndex: i,
       t,
@@ -172,8 +145,7 @@ export function generateDollyTrajectory(config: DollyConfig): TrajectoryResult {
 }
 
 /**
- * Generate a pan trajectory: camera sweeps laterally at a fixed distance,
- * always looking at the scene center.
+ * Camera sweeps laterally at a fixed distance while looking at the scene center
  */
 export function generatePanTrajectory(config: PanConfig): TrajectoryResult {
   const keyframes: TrajectoryKeyframe[] = [];
@@ -182,7 +154,7 @@ export function generatePanTrajectory(config: PanConfig): TrajectoryResult {
 
   for (let i = 0; i < config.frameCount; i++) {
     const t = config.frameCount > 1 ? i / (config.frameCount - 1) : 0;
-    // Smooth lateral sweep from -halfSweep to +halfSweep
+    // cosine interpolation gives a smooth lateral sweep
     const smoothT = 0.5 * (1 - Math.cos(Math.PI * t));
     const lateral = -halfSweep + smoothT * config.sweepDistance;
 
@@ -205,9 +177,6 @@ export function generatePanTrajectory(config: PanConfig): TrajectoryResult {
   };
 }
 
-/**
- * Generate a trajectory based on config type.
- */
 export function generateTrajectory(
   config: OrbitConfig | DollyConfig | PanConfig
 ): TrajectoryResult {
@@ -221,9 +190,6 @@ export function generateTrajectory(
   }
 }
 
-/**
- * Apply a keyframe to a Three.js camera and orbit controls.
- */
 export function applyKeyframe(
   camera: THREE.PerspectiveCamera,
   controls: { target: THREE.Vector3; update: () => void },
@@ -234,9 +200,6 @@ export function applyKeyframe(
   controls.update();
 }
 
-/**
- * Create a quick-access set of trajectory presets for a given scene.
- */
 export function getTrajectoryPresets(
   sceneCenter: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 },
   sceneRadius: number = 3,

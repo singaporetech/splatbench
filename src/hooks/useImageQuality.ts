@@ -24,7 +24,6 @@ export function useImageQuality() {
     });
 
     try {
-      // Find both viewer canvases
       const canvases = findViewerCanvases();
 
       console.log(`Found ${canvases.length} canvases:`, canvases);
@@ -42,7 +41,6 @@ export function useImageQuality() {
       console.log('Canvas A position:', { left: rectA.left, top: rectA.top, width: rectA.width, height: rectA.height });
       console.log('Canvas B position:', { left: rectB.left, top: rectB.top, width: rectB.width, height: rectB.height });
 
-      // Verify we have different canvases
       if (canvasA === canvasB) {
         throw new Error('Found the same canvas twice! Cannot compare.');
       }
@@ -55,7 +53,6 @@ export function useImageQuality() {
         canvasBElement: canvasB
       });
 
-      // Validate same resolution
       if (canvasA.width !== canvasB.width || canvasA.height !== canvasB.height) {
         throw new Error(
           `Canvas resolutions must match. Splat A: ${canvasA.width}x${canvasA.height}, Splat B: ${canvasB.width}x${canvasB.height}`
@@ -66,7 +63,6 @@ export function useImageQuality() {
       console.log('Context A available:', !!contextA);
       console.log('Context B available:', !!contextB);
 
-      // Log camera position/distance for correlation analysis
       if (contextA?.camera?.position) {
         const pos = contextA.camera.position;
         const distance = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
@@ -74,14 +70,12 @@ export function useImageQuality() {
         console.log(`Camera position: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`);
       }
 
-      // Wait a bit for rendering to stabilize
+      // allow rendering to settle before reading pixels
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Capture both canvases with forced render (async now)
       const imageDataA = await captureCanvas(canvasA, contextA);
       const imageDataB = await captureCanvas(canvasB, contextB);
 
-      // Sample some pixels to verify they're different
       const samplePixels = (data: ImageData, label: string) => {
         const center = Math.floor(data.data.length / 2);
         const topLeft = 0;
@@ -111,11 +105,10 @@ export function useImageQuality() {
       samplePixels(imageDataA, 'Canvas A');
       samplePixels(imageDataB, 'Canvas B');
 
-      // Calculate pixel difference statistics
       let totalDiff = 0;
       let maxDiff = 0;
       let pixelsDifferent = 0;
-      const threshold = 5; // Consider pixels different if any channel differs by >5
+      const threshold = 5;
 
       for (let i = 0; i < imageDataA.data.length; i += 4) {
         const diffR = Math.abs(imageDataA.data[i] - imageDataB.data[i]);
@@ -143,7 +136,6 @@ export function useImageQuality() {
         totalPixels
       });
 
-      // WARNING: If avgDiff is 0, images are identical!
       if (avgDiff === 0) {
         console.warn('⚠️ WARNING: Images are IDENTICAL (avgDiff = 0)!');
         console.warn('This likely means both canvases captured the same viewer.');

@@ -1,35 +1,28 @@
-/**
- * CSV Export System for SplatBench
- * 
- * Comprehensive data export with full metadata for reproducibility
- * and analysis in Python, R, or other tools.
- */
-
 import type { BenchmarkMetrics, ImageQualityMetrics } from '../../types';
 
 export interface ExportRecord {
-  // Test identification
+  // test identification
   timestamp: string;
   testId: string;
   sceneName: string;
   
-  // Format information
+  // format information
   referenceFormat: string;
   testFormat: string;
   fileSizeReferenceMB: number;
   fileSizeTestMB: number;
   compressionRatio: number;
   
-  // Viewpoint information
+  // viewpoint information
   viewpointName: string;
   cameraDistance: number;
   cameraPosition: { x: number; y: number; z: number };
   
-  // Quality metrics
+  // quality metrics
   psnr: number | null;
   ssim: number | null;
   
-  // Performance metrics - Reference
+  // reference performance metrics
   fpsReference: number;
   frameTimeReference: number;
   memoryMBReference: number;
@@ -37,7 +30,7 @@ export interface ExportRecord {
   fps1PercentLowReference: number;
   frameTimeVarianceReference: number;
   
-  // Performance metrics - Test
+  // test performance metrics
   fpsTest: number;
   frameTimeTest: number;
   memoryMBTest: number;
@@ -45,7 +38,7 @@ export interface ExportRecord {
   fps1PercentLowTest: number;
   frameTimeVarianceTest: number;
   
-  // System information
+  // system information
   browserName: string;
   browserVersion: string;
   browserEngine: string;
@@ -55,18 +48,15 @@ export interface ExportRecord {
   screenResolution: string;
   devicePixelRatio: number;
   
-  // Splat counts
+  // splat counts
   splatCountReference: number;
   splatCountTest: number;
   
-  // Canvas resolution
+  // canvas resolution
   canvasWidth: number;
   canvasHeight: number;
 }
 
-/**
- * Get system information for export
- */
 function getSystemInfo(): Pick<ExportRecord, 
   'browserName' | 'browserVersion' | 'browserEngine' | 
   'gpuRenderer' | 'webglVersion' | 'osPlatform' |
@@ -76,7 +66,6 @@ function getSystemInfo(): Pick<ExportRecord,
   const canvas = document.createElement('canvas');
   const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
   
-  // Detect browser
   let browserName = 'Unknown';
   let browserVersion = 'Unknown';
   
@@ -94,7 +83,6 @@ function getSystemInfo(): Pick<ExportRecord,
     browserVersion = ua.match(/Edg\/(\d+\.\d+)/)?.[1] || 'Unknown';
   }
   
-  // Get GPU info
   let gpuRenderer = 'Unknown';
   let webglVersion = 'Unknown';
   
@@ -120,9 +108,6 @@ function getSystemInfo(): Pick<ExportRecord,
   };
 }
 
-/**
- * Create export record from current comparison
- */
 export function createExportRecord(
   sceneName: string,
   referenceFormat: string,
@@ -171,9 +156,6 @@ export function createExportRecord(
   };
 }
 
-/**
- * Convert export record to CSV row
- */
 function recordToRow(record: ExportRecord): string {
   const values = [
     record.timestamp,
@@ -218,9 +200,6 @@ function recordToRow(record: ExportRecord): string {
   return values.join(',');
 }
 
-/**
- * CSV column headers
- */
 const CSV_HEADERS = [
   'timestamp',
   'test_id',
@@ -261,9 +240,6 @@ const CSV_HEADERS = [
   'canvas_height',
 ];
 
-/**
- * Export records to CSV
- */
 export function exportToCSV(records: ExportRecord[]): string {
   const lines = [
     CSV_HEADERS.join(','),
@@ -272,9 +248,6 @@ export function exportToCSV(records: ExportRecord[]): string {
   return lines.join('\n');
 }
 
-/**
- * Export single record and download
- */
 export function exportAndDownload(
   record: ExportRecord,
   filename?: string
@@ -292,9 +265,6 @@ export function exportAndDownload(
   URL.revokeObjectURL(url);
 }
 
-/**
- * Create a CSV exporter that accumulates multiple records
- */
 export function createCSVExporter() {
   const records: ExportRecord[] = [];
   
@@ -331,9 +301,6 @@ export function createCSVExporter() {
   };
 }
 
-/**
- * Generate summary statistics from export records
- */
 export function generateSummary(records: ExportRecord[]) {
   if (records.length === 0) return null;
   
@@ -359,7 +326,6 @@ export function generateSummary(records: ExportRecord[]) {
   };
 }
 
-// Helper functions
 function groupBy<T, K extends keyof T>(arr: T[], key: K): Record<string, T[]> {
   return arr.reduce((groups, item) => {
     const group = String(item[key]);

@@ -8,13 +8,9 @@ import type { SparkViewerContext } from '../../types';
 /**
  * Captures a WebGL canvas to ImageData by reading pixels directly from WebGL context
  * This works even with preserveDrawingBuffer: false by forcing a render immediately before capture
- * @param canvas - The WebGL canvas to capture
- * @param context - The SparkViewerContext to force render
- * @returns ImageData containing the canvas pixels
  */
 export function captureCanvas(canvas: HTMLCanvasElement, context?: SparkViewerContext | null): Promise<ImageData> {
   return new Promise<ImageData>((resolve, reject) => {
-    // Capture in the next frame when rendering has occurred
     requestAnimationFrame(() => {
       try {
         const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
@@ -23,13 +19,13 @@ export function captureCanvas(canvas: HTMLCanvasElement, context?: SparkViewerCo
           return;
         }
 
-        // Force a render RIGHT BEFORE readPixels if context is available
+        // force a render immediately before readPixels when a viewer context is available
         if (context) {
           console.log('Forcing render before capture...');
           context.forceRender();
         }
 
-        // Unbind any PIXEL_PACK_BUFFER left by the renderer (WebGL2 PBO)
+        // WebGL2 renderers may leave PIXEL_PACK_BUFFER bound, which breaks readPixels
         const gl2 = gl as WebGL2RenderingContext;
         if (gl2.PIXEL_PACK_BUFFER) {
           gl2.bindBuffer(gl2.PIXEL_PACK_BUFFER, null);
@@ -40,29 +36,26 @@ export function captureCanvas(canvas: HTMLCanvasElement, context?: SparkViewerCo
 
         console.log(`Reading pixels from ${width}x${height} canvas...`);
 
-        // Read pixels directly from WebGL framebuffer IMMEDIATELY after render
         const pixels = new Uint8Array(width * height * 4);
         gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
-        // Create ImageData from the pixels
-        // Note: WebGL pixels are flipped vertically, so we need to flip them back
+        // WebGL pixels are bottom-left origin, while ImageData is top-left origin
         const imageData = new ImageData(width, height);
         
         for (let y = 0; y < height; y++) {
           for (let x = 0; x < width; x++) {
-            const srcIdx = ((height - 1 - y) * width + x) * 4; // Flip Y
+            const srcIdx = ((height - 1 - y) * width + x) * 4;
             const dstIdx = (y * width + x) * 4;
-            imageData.data[dstIdx] = pixels[srcIdx];     // R
-            imageData.data[dstIdx + 1] = pixels[srcIdx + 1]; // G
-            imageData.data[dstIdx + 2] = pixels[srcIdx + 2]; // B
-            imageData.data[dstIdx + 3] = pixels[srcIdx + 3]; // A
+            imageData.data[dstIdx] = pixels[srcIdx];
+            imageData.data[dstIdx + 1] = pixels[srcIdx + 1];
+            imageData.data[dstIdx + 2] = pixels[srcIdx + 2];
+            imageData.data[dstIdx + 3] = pixels[srcIdx + 3];
           }
         }
 
-        // Check if we got valid data (not all transparent)
         let hasColor = false;
         for (let i = 3; i < imageData.data.length; i += 4) {
-          if (imageData.data[i] > 0) { // Check alpha channel
+          if (imageData.data[i] > 0) {
             hasColor = true;
             break;
           }
@@ -70,7 +63,6 @@ export function captureCanvas(canvas: HTMLCanvasElement, context?: SparkViewerCo
         
         if (!hasColor) {
           console.warn('Captured canvas appears to be empty/transparent - all pixels have alpha=0');
-          // Log first few pixels for debugging
           console.log('First 10 RGBA values:', Array.from(pixels.slice(0, 40)));
         } else {
           console.log('Successfully captured canvas with color data');
@@ -86,12 +78,9 @@ export function captureCanvas(canvas: HTMLCanvasElement, context?: SparkViewerCo
 
 /**
  * Calculate PSNR (Peak Signal-to-Noise Ratio) between two images
- * @param imageA - First image data
- * @param imageB - Second image data
- * @returns PSNR in decibels (dB). Higher is better. Infinity means identical images.
+ * Returns Infinity for identical images
  */
 export function calculatePSNR(imageA: ImageData, imageB: ImageData): number {
-  // Validate dimensions match
   if (imageA.width !== imageB.width || imageA.height !== imageB.height) {
     throw new Error('Images must have the same dimensions for PSNR calculation');
   }
@@ -99,9 +88,7 @@ export function calculatePSNR(imageA: ImageData, imageB: ImageData): number {
   const pixels = imageA.width * imageA.height;
   let mse = 0;
 
-  // Calculate Mean Squared Error across RGB channels
   for (let i = 0; i < imageA.data.length; i += 4) {
-    // Compare R, G, B channels (skip alpha at i+3)
     const diffR = imageA.data[i] - imageB.data[i];
     const diffG = imageA.data[i + 1] - imageB.data[i + 1];
     const diffB = imageA.data[i + 2] - imageB.data[i + 2];
@@ -109,49 +96,38 @@ export function calculatePSNR(imageA: ImageData, imageB: ImageData): number {
     mse += diffR * diffR + diffG * diffG + diffB * diffB;
   }
 
-  // Average MSE across all RGB pixels
   mse /= pixels * 3;
 
-  // Handle identical images
   if (mse === 0) {
     return Infinity;
   }
 
-  // PSNR formula: 10 * log10(MAX^2 / MSE)
-  // MAX = 255 for 8-bit images
+  // PSNR formula: 10 * log10(MAX^2 / MSE), with MAX = 255 for 8-bit RGB
   const maxPixelValue = 255;
   return 10 * Math.log10((maxPixelValue * maxPixelValue) / mse);
 }
 
 /**
  * Convert ImageData to grayscale array using luminance formula
- * @param imageData - Input image data
- * @returns Flat array of grayscale values (0-255)
  */
 function toGrayscale(imageData: ImageData): number[] {
   const gray = new Array(imageData.width * imageData.height);
 
   for (let i = 0, j = 0; i < imageData.data.length; i += 4, j++) {
-    // Standard luminance formula: 0.299*R + 0.587*G + 0.114*B
+    // ITU-R BT.601 luma coefficients
     gray[j] =
-      0.299 * imageData.data[i] +     // R
-      0.587 * imageData.data[i + 1] + // G
-      0.114 * imageData.data[i + 2];  // B
+      0.299 * imageData.data[i] +
+      0.587 * imageData.data[i + 1] +
+      0.114 * imageData.data[i + 2];
   }
 
   return gray;
 }
 
-/**
- * Calculate mean of an array
- */
 function mean(arr: number[]): number {
   return arr.reduce((sum, val) => sum + val, 0) / arr.length;
 }
 
-/**
- * Calculate variance of an array given its mean
- */
 function variance(arr: number[], meanVal: number): number {
   const sumSquaredDiff = arr.reduce((sum, val) => {
     const diff = val - meanVal;
@@ -160,9 +136,6 @@ function variance(arr: number[], meanVal: number): number {
   return sumSquaredDiff / arr.length;
 }
 
-/**
- * Calculate covariance between two arrays given their means
- */
 function covariance(arrA: number[], arrB: number[], meanA: number, meanB: number): number {
   if (arrA.length !== arrB.length) {
     throw new Error('Arrays must have same length for covariance');
@@ -179,39 +152,31 @@ function covariance(arrA: number[], arrB: number[], meanA: number, meanB: number
 /**
  * Calculate SSIM (Structural Similarity Index) between two images
  * Uses simplified whole-image SSIM (not windowed)
- * @param imageA - First image data
- * @param imageB - Second image data
- * @returns SSIM value between 0 and 1. Higher is better. 1.0 means identical.
  */
 export function calculateSSIM(imageA: ImageData, imageB: ImageData): number {
-  // Validate dimensions match
   if (imageA.width !== imageB.width || imageA.height !== imageB.height) {
     throw new Error('Images must have the same dimensions for SSIM calculation');
   }
 
-  // SSIM constants (standard values)
-  const L = 255; // Dynamic range for 8-bit images
+  // SSIM constants for 8-bit images
+  const L = 255;
   const K1 = 0.01;
   const K2 = 0.03;
   const C1 = (K1 * L) ** 2;
   const C2 = (K2 * L) ** 2;
 
-  // Convert to grayscale
   const grayA = toGrayscale(imageA);
   const grayB = toGrayscale(imageB);
 
-  // Calculate statistics
   const meanA = mean(grayA);
   const meanB = mean(grayB);
   const varA = variance(grayA, meanA);
   const varB = variance(grayB, meanB);
   const covAB = covariance(grayA, grayB, meanA, meanB);
 
-  // Calculate standard deviations
   const sigmaA = Math.sqrt(varA);
   const sigmaB = Math.sqrt(varB);
 
-  // Debug: Log SSIM components
   console.log('SSIM calculation details:', {
     meanA: meanA.toFixed(2),
     meanB: meanB.toFixed(2),
@@ -222,7 +187,6 @@ export function calculateSSIM(imageA: ImageData, imageB: ImageData): number {
     sigmaB: sigmaB.toFixed(2),
   });
 
-  // SSIM formula
   const numerator = (2 * meanA * meanB + C1) * (2 * covAB + C2);
   const denominator = (meanA * meanA + meanB * meanB + C1) * (varA + varB + C2);
 
@@ -241,7 +205,6 @@ export function calculateSSIM(imageA: ImageData, imageB: ImageData): number {
 
 /**
  * Find all Gaussian Splat viewer canvases in the document
- * @returns Array of canvas elements (up to 2 for side-by-side comparison)
  */
 export function findViewerCanvases(): HTMLCanvasElement[] {
   const canvases = document.querySelectorAll('canvas[data-engine="three.js r182"]');

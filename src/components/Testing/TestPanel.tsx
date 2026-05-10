@@ -1,15 +1,3 @@
-/**
- * TestPanel: Modular test runner UI with Current Models and Batch sub-tabs.
- *
- * - "Current Models" sub-tab: runs selected tests on the currently loaded
- *   reference (left pane) and test (right pane) models. Clear per-test
- *   progress with no confusing "batch" terminology.
- *
- * - "Batch" sub-tab: folder-based batch testing. Select a folder containing
- *   ref_<name>.<ext> and test_<name>.<ext> file pairs, preview detected
- *   pairs, and run all tests on each pair sequentially.
- */
-
 import { useState } from 'react';
 import type { BenchmarkMetrics, SparkViewerContext } from '../../types';
 import type { GSFile } from '../../types';
@@ -19,32 +7,25 @@ import type { TestRunState } from '../../hooks/useTestRunner';
 import { BatchTestPanel } from './BatchTestPanel';
 import { InfoTooltip } from '../UI/InfoTooltip';
 
-// Ensure built-in tests are registered
+// register built-in tests through module side effects
 import '../../lib/testing/trajectoryTests';
 import '../../lib/testing/staticQualityTest';
 
 interface TestPanelProps {
   contextA: SparkViewerContext | null;
   contextB: SparkViewerContext | null;
-  /** Callback to load a file into the reference (left) viewer, returns context */
   onLoadRef?: (file: GSFile) => Promise<SparkViewerContext | null>;
-  /** Callback to load a file into the test (right) viewer, returns context */
   onLoadTest?: (file: GSFile) => Promise<SparkViewerContext | null>;
-  /** Snapshot current reference metrics for batch paper CSV export */
   getReferenceMetrics?: () => BenchmarkMetrics;
-  /** Snapshot current test metrics for batch paper CSV export */
   getTestMetrics?: () => BenchmarkMetrics;
-  /** Clear rolling reference performance samples while keeping file metadata */
   resetReferenceMetrics?: () => void;
-  /** Clear rolling test performance samples while keeping file metadata */
   resetTestMetrics?: () => void;
-  /** Notify parent when batch execution starts or ends */
   onBatchRunningChange?: (running: boolean) => void;
 }
 
 type SubTab = 'current' | 'batch';
 
-// ─── Status Indicator ───────────────────────────────────────────────────────
+// ─── Status Indicator ────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   TestStatus,
@@ -71,9 +52,7 @@ function StatusDot({ status }: { status: TestStatus }) {
   );
 }
 
-// InfoTooltip imported from ../UI/InfoTooltip
-
-// ─── Progress Bar ───────────────────────────────────────────────────────────
+// ─── Progress Bar ────────────────────────────────────────────────────────────
 
 function ProgressBar({
   fraction,
@@ -127,7 +106,7 @@ function ProgressBar({
   );
 }
 
-// ─── Test Queue Progress ────────────────────────────────────────────────────
+// ─── Test Queue Progress ─────────────────────────────────────────────────────
 
 function TestQueueProgress({
   completed,
@@ -139,8 +118,7 @@ function TestQueueProgress({
   isRunning: boolean;
 }) {
   if (total === 0) return null;
-  // During execution, show 1-based index of the test currently running
-  // After completion, show final counts
+  // show a 1-based running index during execution and final counts afterward
   const currentTest = isRunning ? Math.min(completed + 1, total) : completed;
   const fraction = completed / total;
   const rawPercent = Math.max(0, Math.min(fraction * 100, 100));
@@ -176,12 +154,12 @@ function TestQueueProgress({
   );
 }
 
-// ─── Test Result Card ───────────────────────────────────────────────────────
+// ─── Test Result Card ────────────────────────────────────────────────────────
 
 function TestResultCard({ state, testName }: { state: TestRunState; testName: string }) {
   const result = state.result;
 
-  // Execution error: test threw an exception and has no result
+  // execution error with no result payload
   if (!result && state.error) {
     return (
       <div
@@ -225,7 +203,7 @@ function TestResultCard({ state, testName }: { state: TestRunState; testName: st
         border: `1px solid ${gradeColor}40`,
       }}
     >
-      {/* Header */}
+      {/* header */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold" style={{ color: '#FDFDFB' }}>
           {testName}
@@ -238,12 +216,12 @@ function TestResultCard({ state, testName }: { state: TestRunState; testName: st
         </span>
       </div>
 
-      {/* Summary */}
+      {/* summary */}
       <div className="text-xs mb-2" style={{ color: '#888' }}>
         {result.summary}
       </div>
 
-      {/* Metrics */}
+      {/* metrics */}
       <div className="space-y-1">
         {result.metricEntries.map((entry, i) => {
           let valueColor = '#FDFDFB';
@@ -255,7 +233,7 @@ function TestResultCard({ state, testName }: { state: TestRunState; testName: st
                   ? '#FFD59B'
                   : '#FF575F';
           } else if (entry.higherIsBetter === false) {
-            // Lower is better (e.g., std dev)
+            // lower is better, such as standard deviation
             valueColor =
               entry.value < 0.005
                 ? '#BEFF74'
@@ -292,7 +270,7 @@ function TestResultCard({ state, testName }: { state: TestRunState; testName: st
         })}
       </div>
 
-      {/* Duration */}
+      {/* duration */}
       <div className="mt-2 text-xs" style={{ color: '#666' }}>
         {(result.durationMs / 1000).toFixed(1)}s
       </div>
@@ -300,7 +278,7 @@ function TestResultCard({ state, testName }: { state: TestRunState; testName: st
   );
 }
 
-// ─── Results Summary ────────────────────────────────────────────────────────
+// ─── Results Summary ─────────────────────────────────────────────────────────
 
 function ResultsSummary({
   passed,
@@ -354,7 +332,7 @@ function ResultsSummary({
   );
 }
 
-// ─── Current Models Sub-Panel ───────────────────────────────────────────────
+// ─── Current Models Sub-Panel ────────────────────────────────────────────────
 
 function CurrentModelsPanel({
   contextA,
@@ -365,7 +343,6 @@ function CurrentModelsPanel({
 }) {
   const runner = useTestRunner();
 
-  // Build the TestScene from viewer contexts
   const scene: TestScene | null = contextA
     ? { primary: contextA, reference: contextB ?? null }
     : null;
@@ -383,14 +360,13 @@ function CurrentModelsPanel({
   const hasResults = runner.results.length > 0 || runner.summary.executionErrors > 0;
   const showQueueProgress = runner.isRunning && runner.totalInBatch > 1;
 
-  // Active test progress data
   const activeState = runner.activeTestId
     ? runner.testStates.get(runner.activeTestId)
     : null;
 
   return (
     <div>
-      {/* Sticky progress container -- visible only when tests are running */}
+      {/* sticky progress while tests are running */}
       {runner.isRunning && (
         <div
           className="px-6 py-3 -mx-6 -mt-0 mb-4"
@@ -431,7 +407,7 @@ function CurrentModelsPanel({
         </div>
       )}
 
-      {/* Explanation */}
+      {/* explanation */}
       <p className="text-xs mb-3" style={{ color: '#888' }}>
         Compare a{' '}
         <span style={{ color: '#FFACBF' }}>test model</span> (right pane) against a fixed{' '}
@@ -456,7 +432,7 @@ function CurrentModelsPanel({
         </div>
       </div>
 
-      {/* Selection controls */}
+      {/* selection controls */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-2">
           <button
@@ -491,7 +467,7 @@ function CurrentModelsPanel({
         </span>
       </div>
 
-      {/* Test list -- flat numbered list (no category headers) */}
+      {/* test list */}
       <div className="mb-5 space-y-1">
         {runner.tests.map((test, index) => {
           const state = runner.testStates.get(test.id);
@@ -536,7 +512,7 @@ function CurrentModelsPanel({
         })}
       </div>
 
-      {/* Run / Cancel buttons */}
+      {/* run and cancel buttons */}
       <div className="flex gap-2 mb-4">
         {runner.isRunning ? (
           <button
@@ -589,7 +565,7 @@ function CurrentModelsPanel({
         </div>
       )}
 
-      {/* Results */}
+          {/* results */}
       {hasResults && !runner.isRunning && (
         <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
@@ -608,7 +584,7 @@ function CurrentModelsPanel({
             </button>
           </div>
 
-          {/* Results summary */}
+          {/* results summary */}
           <ResultsSummary
             passed={runner.summary.passed}
             failed={runner.summary.failed}
@@ -617,7 +593,7 @@ function CurrentModelsPanel({
             total={runner.summary.total}
           />
 
-          {/* Individual results */}
+          {/* individual results */}
           {runner.tests.map((test) => {
             const state = runner.testStates.get(test.id);
             if (!state || (!state.result && !state.error)) return null;
@@ -635,7 +611,7 @@ function CurrentModelsPanel({
   );
 }
 
-// ─── Main Component ─────────────────────────────────────────────────────────
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 export function TestPanel({
   contextA,
@@ -650,7 +626,7 @@ export function TestPanel({
 }: TestPanelProps) {
   const [subTab, setSubTab] = useState<SubTab>('current');
 
-  // Default no-op loaders if not provided by parent
+  // default no-op loaders when parent callbacks are absent
   const defaultLoader = async () => null;
   const loadRef = onLoadRef ?? defaultLoader;
   const loadTest = onLoadTest ?? defaultLoader;
@@ -664,7 +640,7 @@ export function TestPanel({
         fontFamily: 'Arvo, serif',
       }}
     >
-      {/* Inline keyframe for pulse animation */}
+      {/* inline keyframe for pulse animation */}
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
@@ -673,12 +649,12 @@ export function TestPanel({
       `}</style>
 
       <div className="px-6 py-6">
-        {/* Header */}
+        {/* header */}
         <h2 className="text-xl mb-4" style={{ color: '#B39DFF' }}>
           Tests
         </h2>
 
-        {/* Sub-tab navigation */}
+        {/* sub-tab navigation */}
         <div
           className="flex mb-5 rounded-lg overflow-hidden"
           style={{ border: '1px solid #555' }}
@@ -706,7 +682,7 @@ export function TestPanel({
           </button>
         </div>
 
-        {/* Sub-tab content */}
+        {/* sub-tab content */}
         {subTab === 'current' && (
           <CurrentModelsPanel contextA={contextA} contextB={contextB} />
         )}

@@ -1,15 +1,3 @@
-/**
- * BatchTestPanel: Batch testing UI for folder-based ref/test file pairs.
- *
- * Allows users to select a folder containing paired files
- * (ref_<name>.<ext> and test_<name>.<ext>), previews detected pairs,
- * and runs all registered tests on each pair sequentially.
- *
- * When every pair name matches the canonical <scene>-<format> paper pattern,
- * the batch runner automatically expands each pair into the full paper matrix:
- * 5 viewpoints x 3 replicates x all registered tests.
- */
-
 import { useRef, useCallback } from 'react';
 import type { BenchmarkMetrics, SparkViewerContext } from '../../types';
 import type { TestScene } from '../../lib/testing/types';
@@ -29,19 +17,12 @@ import { InfoTooltip } from '../UI/InfoTooltip';
 interface BatchTestPanelProps {
   contextA: SparkViewerContext | null;
   contextB: SparkViewerContext | null;
-  /** Callback to load a file into the reference (left) viewer */
   onLoadRef: (file: GSFile) => Promise<SparkViewerContext | null>;
-  /** Callback to load a file into the test (right) viewer */
   onLoadTest: (file: GSFile) => Promise<SparkViewerContext | null>;
-  /** Snapshot current reference metrics for paper CSV export */
   getReferenceMetrics?: () => BenchmarkMetrics;
-  /** Snapshot current test metrics for paper CSV export */
   getTestMetrics?: () => BenchmarkMetrics;
-  /** Clear rolling reference performance samples while keeping file metadata */
   resetReferenceMetrics?: () => void;
-  /** Clear rolling test performance samples while keeping file metadata */
   resetTestMetrics?: () => void;
-  /** Notify parent when batch execution starts or ends */
   onBatchRunningChange?: (running: boolean) => void;
 }
 

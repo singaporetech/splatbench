@@ -17,7 +17,7 @@ import {
   buildTrajectoryMetricsResult,
 } from './trajectoryMetrics';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function createImageData(
   width: number,
@@ -50,7 +50,7 @@ function generateFrameSequence(
   return frames;
 }
 
-// ─── computeInterFrameSSIM Tests ────────────────────────────────────────────
+// ─── computeInterFrameSSIM Tests ─────────────────────────────────────────────
 
 describe('computeInterFrameSSIM', () => {
   it('returns empty array for single frame', () => {
@@ -84,19 +84,19 @@ describe('computeInterFrameSSIM', () => {
     // 4 identical frames, then 1 very different frame
     const frames = [
       ...generateFrameSequence(4, 8, 8, 128, 0),
-      createImageData(8, 8, [255, 0, 0, 255]), // Red frame
+      createImageData(8, 8, [255, 0, 0, 255]),
     ];
 
     const result = computeInterFrameSSIM(frames);
     expect(result).toHaveLength(4);
 
-    // First 3 pairs should have high SSIM (identical frames)
+    // first 3 pairs should have high SSIM because frames are identical
     for (let i = 0; i < 3; i++) {
       expect(result[i].ssim).toBeCloseTo(1.0, 4);
     }
 
-    // Last pair (gray -> red) should have lower SSIM
-    // Whole-image SSIM for uniform gray(128)→red(255,0,0) is ~0.879 due to
+    // last pair should have lower SSIM
+    // whole-image SSIM for uniform gray(128) to red(255,0,0) is ~0.879 due to
     // luminance/contrast similarity in the SSIM formula, so use 0.9 threshold
     expect(result[3].ssim).toBeLessThan(0.9);
   });
@@ -123,7 +123,7 @@ describe('computeInterFrameSSIM', () => {
   });
 });
 
-// ─── computePerFrameMetrics Tests ───────────────────────────────────────────
+// ─── computePerFrameMetrics Tests ────────────────────────────────────────────
 
 describe('computePerFrameMetrics', () => {
   it('returns correct number of metrics', () => {
@@ -185,7 +185,7 @@ describe('computePerFrameMetrics', () => {
     const resultSimilar = computePerFrameMetrics(reference, similar, t);
     const resultDifferent = computePerFrameMetrics(reference, different, t);
 
-    // Similar should have higher PSNR/SSIM than different
+    // similar should have higher PSNR/SSIM than different
     for (let i = 0; i < 3; i++) {
       expect(resultSimilar[i].psnr!).toBeGreaterThan(resultDifferent[i].psnr!);
       expect(resultSimilar[i].ssim!).toBeGreaterThan(resultDifferent[i].ssim!);
@@ -193,7 +193,7 @@ describe('computePerFrameMetrics', () => {
   });
 });
 
-// ─── buildTrajectoryMetricsResult Tests ─────────────────────────────────────
+// ─── buildTrajectoryMetricsResult Tests ──────────────────────────────────────
 
 describe('buildTrajectoryMetricsResult', () => {
   it('produces correct totalFrames', () => {
@@ -229,12 +229,12 @@ describe('buildTrajectoryMetricsResult', () => {
   });
 
   it('identifies worst transition frame correctly', () => {
-    // Create sequence: identical, identical, JUMP, identical
+    // create sequence with an abrupt change between frames 2 and 3
     const frames = [
       createImageData(8, 8, [128, 128, 128, 255]),
       createImageData(8, 8, [128, 128, 128, 255]),
       createImageData(8, 8, [128, 128, 128, 255]),
-      createImageData(8, 8, [0, 255, 0, 255]),    // Abrupt change at index 3
+      createImageData(8, 8, [0, 255, 0, 255]),
       createImageData(8, 8, [0, 255, 0, 255]),
     ];
 
@@ -248,7 +248,7 @@ describe('buildTrajectoryMetricsResult', () => {
 
     const result = buildTrajectoryMetricsResult(perFrame, interFrame, 'jump test');
 
-    // Worst transition should be pair 2 (frame 2->3)
+    // worst transition should be pair 2, from frame 2 to 3
     expect(result.temporalConsistency.worstTransitionFrame).toBe(2);
   });
 
@@ -284,7 +284,7 @@ describe('buildTrajectoryMetricsResult', () => {
 
     expect(result.aggregatePerFrame.psnrMean).toBeNull();
     expect(result.aggregatePerFrame.ssimMean).toBeNull();
-    // But temporal consistency should still be computed
+    // temporal consistency should still be computed
     expect(result.temporalConsistency.interFrameSSIMMean).toBeCloseTo(0.99, 4);
   });
 
@@ -292,7 +292,7 @@ describe('buildTrajectoryMetricsResult', () => {
     const perFrame = [{ frameIndex: 0, t: 0, psnr: null, ssim: null }];
     const result = buildTrajectoryMetricsResult(perFrame, [], 'ts test');
     expect(result.capturedAt).toBeTruthy();
-    // Should be valid ISO date
+    // should be valid ISO date
     expect(() => new Date(result.capturedAt)).not.toThrow();
   });
 
@@ -304,7 +304,7 @@ describe('buildTrajectoryMetricsResult', () => {
   });
 });
 
-// ─── Determinism Tests ──────────────────────────────────────────────────────
+// ─── Determinism Tests ───────────────────────────────────────────────────────
 
 describe('determinism', () => {
   it('same frames produce identical inter-frame SSIM results', () => {
@@ -355,7 +355,7 @@ describe('determinism', () => {
   });
 });
 
-// ─── Data Integrity Tests ───────────────────────────────────────────────────
+// ─── Data Integrity Tests ────────────────────────────────────────────────────
 
 describe('data integrity', () => {
   it('frame count is preserved through the pipeline', () => {
@@ -383,16 +383,16 @@ describe('data integrity', () => {
     const frames = generateFrameSequence(n, 8, 8, 50, 5);
     const interFrame = computeInterFrameSSIM(frames);
 
-    // Should have exactly n-1 pairs
+    // should have exactly n-1 pairs
     expect(interFrame).toHaveLength(n - 1);
 
-    // Every pair index should be present
+    // every pair index should be present
     const indices = interFrame.map((p) => p.pairIndex);
     for (let i = 0; i < n - 1; i++) {
       expect(indices).toContain(i);
     }
 
-    // Every SSIM value should be a valid number
+    // every SSIM value should be a valid number
     for (const pair of interFrame) {
       expect(typeof pair.ssim).toBe('number');
       expect(isNaN(pair.ssim)).toBe(false);
@@ -421,7 +421,7 @@ describe('data integrity', () => {
   });
 });
 
-// ─── Edge Cases ─────────────────────────────────────────────────────────────
+// ─── Edge Cases ──────────────────────────────────────────────────────────────
 
 describe('edge cases', () => {
   it('handles 2 frames (minimum for inter-frame)', () => {
@@ -441,7 +441,7 @@ describe('edge cases', () => {
     const interFrame = computeInterFrameSSIM(frames);
     expect(interFrame).toHaveLength(119);
 
-    // All values should be valid
+    // all values should be valid
     for (const pair of interFrame) {
       expect(typeof pair.ssim).toBe('number');
       expect(pair.ssim).toBeGreaterThan(0);
@@ -452,7 +452,7 @@ describe('edge cases', () => {
     const frames = generateFrameSequence(30, 16, 16, 128, 0);
     const interFrame = computeInterFrameSSIM(frames);
 
-    // All SSIM should be exactly 1.0 (no change between frames)
+    // all SSIM should be exactly 1.0 because frames do not change
     for (const pair of interFrame) {
       expect(pair.ssim).toBeCloseTo(1.0, 4);
     }
@@ -483,7 +483,7 @@ describe('edge cases', () => {
     const interFrame = computeInterFrameSSIM(frames);
 
     for (const pair of interFrame) {
-      // Identical black frames should have SSIM ~1.0
+      // identical black frames should have SSIM ~1.0
       expect(pair.ssim).toBeCloseTo(1.0, 4);
     }
   });

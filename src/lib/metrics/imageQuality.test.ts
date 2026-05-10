@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculatePSNR, calculateSSIM } from './imageQuality';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Create an ImageData-compatible object for testing (no DOM required). */
 function createImageData(
@@ -47,7 +47,7 @@ function createImageDataFromPixels(
   return { data, width, height, colorSpace: 'srgb' as PredefinedColorSpace };
 }
 
-// ─── PSNR Tests ─────────────────────────────────────────────────────────────
+// ─── PSNR Tests ──────────────────────────────────────────────────────────────
 
 describe('calculatePSNR', () => {
   it('returns Infinity for identical images', () => {
@@ -62,10 +62,10 @@ describe('calculatePSNR', () => {
   });
 
   it('returns correct PSNR for known MSE', () => {
-    // Create two images where every pixel differs by exactly 1 in red channel only
+    // every pixel differs by exactly 1 in red channel only
     // MSE = 1^2 / (pixels * 3) per channel contribution = 1/3 for single channel diff of 1
-    // Actually MSE = sum(diffR^2 + diffG^2 + diffB^2) / (pixels * 3)
-    // With diff only in R channel by 1: MSE = (N * 1) / (N * 3) = 1/3
+    // MSE = sum(diffR^2 + diffG^2 + diffB^2) / (pixels * 3)
+    // with diff only in R channel by 1: MSE = (N * 1) / (N * 3) = 1/3
     // PSNR = 10 * log10(255^2 / (1/3)) = 10 * log10(195075) ~= 52.90 dB
     const a = createImageData(10, 10, [100, 100, 100, 255]);
     const b = createImageData(10, 10, [101, 100, 100, 255]);
@@ -106,7 +106,7 @@ describe('calculatePSNR', () => {
   });
 
   it('produces expected value for uniform single-channel difference', () => {
-    // Every pixel: R differs by 10, G and B identical
+    // every pixel has R differing by 10, with G and B identical
     // MSE = (N * 100) / (N * 3) = 100/3
     // PSNR = 10 * log10(65025 / (100/3)) = 10 * log10(1950.75)
     const a = createImageData(16, 16, [100, 100, 100, 255]);
@@ -116,7 +116,7 @@ describe('calculatePSNR', () => {
   });
 });
 
-// ─── SSIM Tests ─────────────────────────────────────────────────────────────
+// ─── SSIM Tests ──────────────────────────────────────────────────────────────
 
 describe('calculateSSIM', () => {
   it('returns 1.0 for identical images', () => {
@@ -174,31 +174,31 @@ describe('calculateSSIM', () => {
       ssimValues.push(calculateSSIM(ref, noisy));
     }
 
-    // Each successive SSIM should be lower (or equal)
+    // each successive SSIM should be lower or equal
     for (let i = 1; i < ssimValues.length; i++) {
       expect(ssimValues[i]).toBeLessThanOrEqual(ssimValues[i - 1] + 1e-10);
     }
   });
 
   it('handles gradient images correctly', () => {
-    // Horizontal gradient
+    // horizontal gradient
     const gradA = createImageDataFromPixels(32, 32, (x) => {
       const v = Math.round((x / 31) * 255);
       return [v, v, v, 255];
     });
-    // Same gradient shifted by small amount
+    // same gradient shifted by a small amount
     const gradB = createImageDataFromPixels(32, 32, (x) => {
       const v = Math.min(255, Math.round((x / 31) * 255) + 5);
       return [v, v, v, 255];
     });
 
     const ssim = calculateSSIM(gradA, gradB);
-    // Structurally very similar, just slightly brighter
+    // structurally very similar, just slightly brighter
     expect(ssim).toBeGreaterThan(0.9);
   });
 });
 
-// ─── Cross-metric Consistency Tests ─────────────────────────────────────────
+// ─── Cross-metric Consistency Tests ──────────────────────────────────────────
 
 describe('PSNR-SSIM consistency', () => {
   it('both metrics agree on identical images', () => {
@@ -212,7 +212,7 @@ describe('PSNR-SSIM consistency', () => {
     const good = createImageData(16, 16, [130, 130, 130, 255]);
     const bad = createImageData(16, 16, [200, 200, 200, 255]);
 
-    // Better quality should have higher PSNR and higher SSIM
+    // better quality should have higher PSNR and higher SSIM
     expect(calculatePSNR(ref, good)).toBeGreaterThan(calculatePSNR(ref, bad));
     expect(calculateSSIM(ref, good)).toBeGreaterThan(calculateSSIM(ref, bad));
   });

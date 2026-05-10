@@ -153,8 +153,8 @@ export function ImageComparisonSlider({
 
     let animationFrame = 0;
     const animateControls = () => {
-      // Keep keyboard-applied presets and other app-level camera changes usable
-      // while the live slider is open.
+      // keep keyboard-applied presets and other app-level camera changes usable
+      // while the live slider is open
       sliderControls.target.copy(contextA.controls.target);
       sliderControls.update();
       applySyncedCamera();

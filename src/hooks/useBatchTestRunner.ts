@@ -1,14 +1,3 @@
-/**
- * useBatchTestRunner Hook
- *
- * Orchestrates batch testing: iterates over file pairs, loads each pair
- * into the viewer contexts, runs all selected tests, and aggregates results.
- *
- * For paper batch folders that follow the canonical <scene>-<format> pair
- * naming convention, the runner expands each pair into the full paper matrix:
- * 5 scene presets x 3 replicates x 4 registered tests.
- */
-
 import { useState, useCallback, useRef } from 'react';
 import type { FilePair } from './useBatchFolder';
 import type { TestResult, TestScene, Test, OnProgress } from '../lib/testing/types';
@@ -20,7 +9,7 @@ import {
 } from '../lib/camera/cameraPresets';
 import type { PaperBatchRowInput, PaperMetricSnapshot } from '../lib/export/paperCsvExport';
 
-// Ensure built-in tests are registered
+// register built-in tests through module side effects
 import '../lib/testing/trajectoryTests';
 import '../lib/testing/staticQualityTest';
 
@@ -88,7 +77,7 @@ async function applyPaperViewpoint(scene: TestScene, preset: ViewpointPreset): P
   await settleViewers(scene);
 }
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface BatchPairResult {
   pairName: string;
@@ -104,23 +93,14 @@ export interface BatchPairResult {
 export type BatchStatus = 'idle' | 'running' | 'done' | 'cancelled';
 
 export interface UseBatchTestRunnerReturn {
-  /** Overall batch status */
   status: BatchStatus;
-  /** Index of the batch step currently being processed (0-based) */
   currentPairIndex: number;
-  /** Total number of batch steps */
   totalPairs: number;
-  /** Label of the current batch step */
   currentPairName: string;
-  /** Name of the test currently running within the current pair */
   currentTestName: string;
-  /** Progress of the current test (0-1) */
   currentTestProgress: number;
-  /** Progress message for the current test */
   currentTestMessage: string;
-  /** All pair results collected so far */
   pairResults: BatchPairResult[];
-  /** Start batch testing on a list of pairs */
   startBatch: (
     pairs: FilePair[],
     loadPair: (ref: FilePair['ref'], test: FilePair['test']) => Promise<TestScene | null>,
@@ -136,13 +116,11 @@ export interface UseBatchTestRunnerReturn {
       runPlan: PaperRunPlan | null,
     ) => Promise<void>,
   ) => Promise<void>;
-  /** Cancel the running batch */
   cancelBatch: () => void;
-  /** Reset all batch state */
   resetBatch: () => void;
 }
 
-// ─── Hook ───────────────────────────────────────────────────────────────────
+// ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useBatchTestRunner(): UseBatchTestRunnerReturn {
   const [status, setStatus] = useState<BatchStatus>('idle');

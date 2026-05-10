@@ -1,6 +1,4 @@
 /**
- * useBatchFolder Hook
- *
  * Manages folder selection via the browser's webkitdirectory API,
  * detects ref/test file pairs, and provides state for the batch UI.
  *
@@ -15,35 +13,25 @@
 import { useState, useCallback } from 'react';
 import type { GSFile } from '../types';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface FilePair {
-  /** Pair name derived from the filename (e.g., "bonsai") */
   name: string;
-  /** Reference file (ref_<name>.<ext>) */
   ref: GSFile;
-  /** Test file (test_<name>.<ext>) */
   test: GSFile;
 }
 
 export interface UseBatchFolderReturn {
-  /** Detected file pairs from the selected folder */
   pairs: FilePair[];
-  /** Name of the selected folder (empty if none) */
   folderName: string;
-  /** Whether a folder has been selected */
   hasFolder: boolean;
-  /** Unmatched files that didn't form a pair */
   unmatchedFiles: string[];
-  /** Error message if folder selection failed */
   error: string | null;
-  /** Process files from a folder input event */
   handleFolderSelect: (files: FileList) => void;
-  /** Clear the current folder selection */
   clearFolder: () => void;
 }
 
-// ─── Supported extensions ───────────────────────────────────────────────────
+// ─── Supported extensions ────────────────────────────────────────────────────
 
 const SUPPORTED_EXTENSIONS = new Set(['.ply', '.splat', '.ksplat', '.spz']);
 
@@ -90,7 +78,7 @@ function fileToGSFile(file: File): GSFile {
   };
 }
 
-// ─── Hook ───────────────────────────────────────────────────────────────────
+// ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useBatchFolder(): UseBatchFolderReturn {
   const [pairs, setPairs] = useState<FilePair[]>([]);
@@ -106,7 +94,6 @@ export function useBatchFolder(): UseBatchFolderReturn {
       return;
     }
 
-    // Derive folder name from the first file's path
     const firstPath = (files[0] as File & { webkitRelativePath?: string })
       .webkitRelativePath;
     const derivedFolderName = firstPath
@@ -114,7 +101,6 @@ export function useBatchFolder(): UseBatchFolderReturn {
       : 'Selected Folder';
     setFolderName(derivedFolderName);
 
-    // Collect supported files
     const refs = new Map<string, File>();
     const tests = new Map<string, File>();
     const unmatched: string[] = [];
@@ -136,7 +122,6 @@ export function useBatchFolder(): UseBatchFolderReturn {
       }
     }
 
-    // Match pairs
     const matched: FilePair[] = [];
     for (const [name, refFile] of refs) {
       const testFile = tests.get(name);
@@ -152,12 +137,10 @@ export function useBatchFolder(): UseBatchFolderReturn {
       }
     }
 
-    // Remaining unmatched tests
     for (const [, testFile] of tests) {
       unmatched.push(testFile.name);
     }
 
-    // Sort pairs alphabetically
     matched.sort((a, b) => a.name.localeCompare(b.name));
 
     setPairs(matched);

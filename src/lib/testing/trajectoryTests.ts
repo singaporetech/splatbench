@@ -1,15 +1,3 @@
-/**
- * Trajectory Tests
- *
- * Wraps the three existing trajectory types (orbit, dolly, pan) as
- * modular Test implementations.  Each test uses the default trajectory
- * config, generates keyframes, captures frames from the WebGL canvas,
- * and computes inter-frame SSIM (temporal consistency) plus optional
- * per-frame PSNR/SSIM when a reference viewer is available.
- *
- * These tests are registered automatically when this module is imported.
- */
-
 import type { Test, TestScene, TestResult, OnProgress } from './types';
 import { registerTest } from './registry';
 import type {
@@ -32,7 +20,7 @@ import {
 } from '../../lib/metrics/trajectoryMetrics';
 import type { SparkViewerContext } from '../../types';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
  * Wait for two animation frames so the GPU has committed the latest work.
@@ -73,14 +61,12 @@ async function runTrajectoryTest(
   const context: SparkViewerContext = scene.primary;
   const referenceContext: SparkViewerContext | null = scene.reference;
 
-  // Generate trajectory
   const traj = generateTrajectory(config);
   const totalFrames = traj.keyframes.length;
 
   const framesA: ImageData[] = [];
   const framesB: ImageData[] = [];
 
-  // Save original camera state
   const origPos = context.camera.position.clone();
   const origTarget = context.controls.target.clone();
   let refOrigPos: import('three').Vector3 | null = null;
@@ -91,7 +77,7 @@ async function runTrajectoryTest(
   }
 
   try {
-    // Phase 1: Capture frames
+    // phase 1: capture frames
     for (let i = 0; i < totalFrames; i++) {
       if (signal.aborted) throw new Error('Test cancelled');
 
@@ -116,23 +102,21 @@ async function runTrajectoryTest(
       });
     }
 
-    // Ensure Phase 1 shows 100% before transitioning
+    // give React a frame to paint the completed capture phase
     onProgress({
       fraction: 1,
       message: `All ${totalFrames} frames captured`,
       phase: 'Phase 1: Capturing Frames',
     });
-    // Yield to let UI render the 100% state
     await new Promise((r) => setTimeout(r, 50));
 
-    // Phase 2: Compute metrics (progress resets for this phase)
+    // phase 2: compute metrics with phase-local progress
     onProgress({
       fraction: 0,
       message: 'Computing inter-frame SSIM...',
       phase: 'Phase 2: Computing Metrics',
     });
 
-    // Yield to let UI update
     await new Promise((r) => setTimeout(r, 0));
 
     const interFrameMetrics = computeInterFrameSSIM(framesA);
@@ -168,7 +152,6 @@ async function runTrajectoryTest(
       phase: 'Phase 2: Computing Metrics',
     });
 
-    // Restore camera
     context.camera.position.copy(origPos);
     context.controls.target.copy(origTarget);
     context.controls.update();
@@ -178,7 +161,6 @@ async function runTrajectoryTest(
       referenceContext.controls.update();
     }
 
-    // Build TestResult
     const tc = metricsResult.temporalConsistency;
     const grade = gradeTemporalConsistency(tc.interFrameSSIMStdDev);
     const durationMs = performance.now() - startTime;
@@ -191,7 +173,6 @@ async function runTrajectoryTest(
       totalFrames: metricsResult.totalFrames,
     };
 
-    // Add per-frame aggregate metrics if available
     if (metricsResult.aggregatePerFrame.psnrMean !== null) {
       metrics.psnrMean = metricsResult.aggregatePerFrame.psnrMean;
     }
@@ -249,7 +230,7 @@ async function runTrajectoryTest(
       durationMs,
     };
   } catch (err) {
-    // Restore camera even on error
+    // restore camera even on error
     context.camera.position.copy(origPos);
     context.controls.target.copy(origTarget);
     context.controls.update();
@@ -262,7 +243,7 @@ async function runTrajectoryTest(
   }
 }
 
-// ─── Test Definitions ───────────────────────────────────────────────────────
+// ─── Test Definitions ────────────────────────────────────────────────────────
 
 const orbitTest: Test = {
   id: 'trajectory-orbit',
@@ -294,7 +275,7 @@ const panTest: Test = {
     runTrajectoryTest(DEFAULT_PAN_CONFIG, scene, onProgress, signal),
 };
 
-// ─── Auto-Registration ─────────────────────────────────────────────────────
+// ─── Auto-Registration ───────────────────────────────────────────────────────
 
 registerTest(orbitTest);
 registerTest(dollyTest);

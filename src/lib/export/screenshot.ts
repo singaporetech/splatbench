@@ -1,18 +1,11 @@
-/**
- * Screenshot Capture System for SplatBench
- *
- * High-resolution screenshot capture with automatic naming conventions
- * for reproducible data collection and publication-ready figures.
- */
-
 import type { SparkViewerContext } from '../../types';
 
 export interface ScreenshotOptions {
-  width?: number;      // Target width (default: 1920)
-  height?: number;     // Target height (default: 1080)
-  format?: 'png' | 'jpeg';  // Output format
-  quality?: number;    // For JPEG (0-1)
-  transparent?: boolean;  // Include alpha channel
+  width?: number;
+  height?: number;
+  format?: 'png' | 'jpeg';
+  quality?: number;
+  transparent?: boolean;
 }
 
 export interface ScreenshotMetadata {
@@ -80,9 +73,6 @@ async function exportCanvasBlob(
   return dataUrlToBlob(canvas.toDataURL(mimeType, quality));
 }
 
-/**
- * Capture a high-resolution screenshot from a viewer
- */
 export async function captureScreenshot(
   context: SparkViewerContext,
   options: ScreenshotOptions = {}
@@ -91,25 +81,20 @@ export async function captureScreenshot(
   const { renderer, scene, camera } = context;
   const canvas = renderer.domElement;
 
-  // Store original dimensions
   const originalWidth = canvas.width;
   const originalHeight = canvas.height;
   const originalPixelRatio = renderer.getPixelRatio();
 
   try {
-    // Set to high resolution
-    renderer.setPixelRatio(1); // Disable device pixel ratio for consistent output
+    renderer.setPixelRatio(1);
     renderer.setSize(opts.width!, opts.height!, false);
     camera.aspect = opts.width! / opts.height!;
     camera.updateProjectionMatrix();
 
-    // Render
     renderer.render(scene, camera);
 
-    // Get context with alpha if needed
     const ctx = canvas.getContext('2d');
     if (opts.transparent && ctx) {
-      // Clear background for transparency
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       renderer.render(scene, camera);
     }
@@ -118,13 +103,11 @@ export async function captureScreenshot(
     gl.flush();
     gl.finish();
 
-    // Export as blob
     const mimeType = opts.format === 'jpeg' ? 'image/jpeg' : 'image/png';
     const blob = await exportCanvasBlob(canvas, mimeType, opts.quality);
 
     return blob;
   } finally {
-    // Restore original dimensions
     renderer.setPixelRatio(originalPixelRatio);
     renderer.setSize(originalWidth, originalHeight, false);
     camera.aspect = originalWidth / originalHeight;
@@ -134,13 +117,12 @@ export async function captureScreenshot(
 }
 
 /**
- * Generate automatic filename for screenshot
  * Format: {scene}_{format}_{viewpoint}_{side}_{timestamp}.png
  */
 export function generateScreenshotFilename(
   metadata: ScreenshotMetadata
 ): string {
-  const date = metadata.timestamp.split('T')[0]; // YYYY-MM-DD
+  const date = metadata.timestamp.split('T')[0];
   return [
     metadata.sceneName,
     metadata.format,
@@ -151,7 +133,6 @@ export function generateScreenshotFilename(
 }
 
 /**
- * Generate filename for comparison screenshot
  * Format: {scene}_comparison_{viewpoint}_{timestamp}.png
  */
 export function generateComparisonFilename(
@@ -168,9 +149,6 @@ export function generateComparisonFilename(
   ].join('_') + '.png';
 }
 
-/**
- * Capture side-by-side comparison screenshot
- */
 export async function captureComparisonScreenshot(
   contextA: SparkViewerContext,
   contextB: SparkViewerContext,
@@ -180,30 +158,25 @@ export async function captureComparisonScreenshot(
   const width = opts.width!;
   const height = opts.height!;
 
-  // Capture both viewers
   const [blobA, blobB] = await Promise.all([
     captureScreenshot(contextA, { ...opts, width: width / 2, height }),
     captureScreenshot(contextB, { ...opts, width: width / 2, height }),
   ]);
 
-  // Create composite canvas
   const composite = document.createElement('canvas');
   composite.width = width;
   composite.height = height;
   const ctx = composite.getContext('2d')!;
 
-  // Fill background
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, width, height);
 
-  // Draw images side by side
   const imgA = await createImageBitmap(blobA);
   const imgB = await createImageBitmap(blobB);
 
   ctx.drawImage(imgA, 0, 0, width / 2, height);
   ctx.drawImage(imgB, width / 2, 0, width / 2, height);
 
-  // Add divider line
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -211,7 +184,6 @@ export async function captureComparisonScreenshot(
   ctx.lineTo(width / 2, height);
   ctx.stroke();
 
-  // Add labels
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 24px Arial';
   ctx.shadowColor = 'rgba(0,0,0,0.5)';
@@ -219,13 +191,9 @@ export async function captureComparisonScreenshot(
   ctx.fillText('Reference', 20, 40);
   ctx.fillText('Compressed', width / 2 + 20, 40);
 
-  // Export
   return exportCanvasBlob(composite, 'image/png');
 }
 
-/**
- * Download a screenshot blob as a file
- */
 export function downloadScreenshot(
   blob: Blob,
   filename: string
@@ -241,7 +209,6 @@ export function downloadScreenshot(
 }
 
 /**
- * Capture screenshot with full metadata
  * Returns both the image blob and metadata for CSV logging
  */
 export async function captureScreenshotWithMetadata(
@@ -263,9 +230,6 @@ export async function captureScreenshotWithMetadata(
   return { blob, metadata: fullMetadata };
 }
 
-/**
- * Create a screenshot capture button handler
- */
 export function createScreenshotHandler(
   contextA: SparkViewerContext | null,
   contextB: SparkViewerContext | null,
@@ -302,8 +266,7 @@ export function createScreenshotHandler(
 }
 
 /**
- * Capture multiple screenshots in sequence
- * Useful for batch capturing all viewpoints
+ * Captures all supplied viewpoints in order
  */
 export async function captureViewpointSeries(
   context: SparkViewerContext,
@@ -316,13 +279,10 @@ export async function captureViewpointSeries(
   const results = [];
 
   for (const viewpoint of viewpoints) {
-    // Apply viewpoint
     viewpoint.apply();
 
-    // Wait for render
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Capture
     const { blob, metadata } = await captureScreenshotWithMetadata(
       context,
       {

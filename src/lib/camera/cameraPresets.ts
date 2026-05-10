@@ -1,22 +1,13 @@
-/**
- * Camera Preset System for SplatBench
- * 
- * Defines canonical viewpoints for consistent, reproducible evaluation
- * across all scenes. Supports both standard 5-view protocol and
- * custom researcher-defined viewpoints.
- */
-
 import * as THREE from 'three';
 
 export interface ViewpointPreset {
   id: string;
   name: string;
   description: string;
-  // Position relative to scene center (will be scaled by scene radius)
+  // position relative to scene center, scaled by scene radius
   position: { x: number; y: number; z: number };
-  // Look-at target (usually scene center)
+  // look-at target, usually scene center
   target: { x: number; y: number; z: number };
-  // Field of view (optional, defaults to 60)
   fov?: number;
 }
 
@@ -68,12 +59,9 @@ export const STANDARD_VIEWPOINTS: ViewpointPreset[] = [
  */
 export interface SceneCameraConfig {
   sceneId: string;
-  // Multiplier for camera distance from center
-  // Higher values = camera further back
+  // multiplier for camera distance from center
   distanceMultiplier: number;
-  // Scene bounding box radius (estimated)
   estimatedRadius: number;
-  // Custom adjustments for this scene
   customPresets?: ViewpointPreset[];
 }
 
@@ -110,10 +98,6 @@ export const SCENE_CAMERA_CONFIGS: Record<string, SceneCameraConfig> = {
   },
 };
 
-/**
- * Get camera presets for a specific scene
- * Applies scene-specific distance multipliers to standard viewpoints
- */
 export function getScenePresets(sceneName: string): ViewpointPreset[] {
   const config = SCENE_CAMERA_CONFIGS[sceneName.toLowerCase()];
   const multiplier = config?.distanceMultiplier ?? 1.5;
@@ -129,8 +113,7 @@ export function getScenePresets(sceneName: string): ViewpointPreset[] {
 }
 
 /**
- * Calculate scene bounding sphere from splat data
- * This can be used to auto-generate camera presets for custom scenes
+ * Estimates scene bounding radius from splat positions
  */
 export function estimateSceneRadius(splatPositions: Float32Array): number {
   let maxDistance = 0;
@@ -147,14 +130,13 @@ export function estimateSceneRadius(splatPositions: Float32Array): number {
 }
 
 /**
- * Auto-generate camera presets for an unknown scene
  * Uses estimated bounding radius to scale standard viewpoints
  */
 export function generatePresetsForScene(
   _sceneName: string,
   estimatedRadius: number
 ): ViewpointPreset[] {
-  // Use 3.5× radius as baseline for "front" view
+  // use 3.5x radius as baseline for the front view
   const multiplier = estimatedRadius > 0 ? 3.5 / estimatedRadius : 1.5;
   
   return STANDARD_VIEWPOINTS.map(preset => ({
@@ -176,32 +158,28 @@ export function generatePresetsForScene(
  * residual momentum causes the view to drift immediately after switching.
  */
 export function resetControlsMomentum(controls: any /* OrbitControls */): void {
-  // Clear rotational momentum (theta = azimuth, phi = polar)
+  // clear rotational momentum; theta is azimuth and phi is polar
   if (controls._sphericalDelta) {
     controls._sphericalDelta.set(0, 0, 0);
   }
-  // Clear pan momentum
+  // clear pan momentum
   if (controls._panOffset) {
     controls._panOffset.set(0, 0, 0);
   }
-  // Clear zoom momentum
+  // clear zoom momentum
   if (controls._scale !== undefined) {
     controls._scale = 1;
   }
 }
 
-/**
- * Apply a camera preset to a Three.js camera and controls
- */
 export function applyCameraPreset(
   camera: THREE.PerspectiveCamera,
   controls: any, // OrbitControls
   preset: ViewpointPreset
 ): void {
-  // Stop any ongoing damping / rotation momentum BEFORE applying new pose
+  // clear damping momentum before applying a new pose
   resetControlsMomentum(controls);
 
-  // Apply camera position
   camera.position.set(
     preset.position.x,
     preset.position.y,
@@ -221,10 +199,6 @@ export function applyCameraPreset(
   controls.update();
 }
 
-/**
- * Get current camera state as a preset object
- * Useful for saving custom viewpoints
- */
 export function captureCurrentView(
   camera: THREE.PerspectiveCamera,
   controls: any
@@ -247,17 +221,10 @@ export function captureCurrentView(
   };
 }
 
-/**
- * Calculate camera distance from scene center
- * Useful for verifying correct positioning
- */
 export function getCameraDistance(camera: THREE.PerspectiveCamera): number {
   return camera.position.length();
 }
 
-/**
- * Format distance for display
- */
 export function formatDistance(distance: number): string {
   return `${distance.toFixed(2)} units`;
 }

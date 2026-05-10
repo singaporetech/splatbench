@@ -13,7 +13,6 @@ export function useGSLoader() {
     gsFile: GSFile,
     onLoadComplete?: (loadTime: number, splatCount: number) => void
   ) => {
-    // Dispose of any existing mesh first
     if (splatMesh) {
       splatMesh.dispose();
       setSplatMesh(null);
@@ -24,7 +23,6 @@ export function useGSLoader() {
     setLoadProgress(0);
     const startTime = performance.now();
 
-    // Map file format to SplatFileType enum (outside try/catch for error logging)
     let fileType: SplatFileType | undefined = undefined;
     if (gsFile.format === '.ply') {
       fileType = SplatFileType.PLY;
@@ -37,33 +35,26 @@ export function useGSLoader() {
     }
 
     try {
-      // Read file as ArrayBuffer
       const arrayBuffer = await gsFile.file.arrayBuffer();
       const fileBytes = new Uint8Array(arrayBuffer);
 
-      // Create SplatMesh with fileBytes and fileType
       const mesh = new SplatMesh({
         fileBytes,
         fileType,
         fileName: gsFile.file.name,
       });
 
-      // Set up progress tracking during initialization
       let lastProgress = 0;
       const progressInterval = setInterval(() => {
-        // Estimate progress based on time (rough approximation)
         lastProgress = Math.min(lastProgress + 0.1, 0.95);
         setLoadProgress(lastProgress);
       }, 100);
 
-      // Wait for initialization to complete
       await mesh.initialized;
       
-      // Clear progress interval
       clearInterval(progressInterval);
       setLoadProgress(1);
 
-      // Get splat count
       const count = mesh.numSplats;
       setSplatCount(count);
       console.log('Scene loaded with', count, 'splats');
@@ -72,10 +63,9 @@ export function useGSLoader() {
       const loadTime = performance.now() - startTime;
 
       if (onLoadComplete) {
-        onLoadComplete(loadTime, count); // Pass splat count to callback
+        onLoadComplete(loadTime, count);
       }
     } catch (e) {
-      // Log detailed error information
       const error = e as Error;
       console.error('Failed to load GS file:', {
         message: error.message,
@@ -87,7 +77,6 @@ export function useGSLoader() {
         fileType: fileType,
       });
       
-      // Provide helpful error message for .ksplat format issues
       if (gsFile.format === '.ksplat') {
         const formatError = new Error(
           `Failed to load ${gsFile.format} file. ` +

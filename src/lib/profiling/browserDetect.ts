@@ -1,9 +1,3 @@
-/**
- * Browser and Hardware Detection for SplatBench
- * 
- * Detects browser, GPU, WebGL/WebGPU support for benchmarking
- */
-
 export interface BrowserProfile {
   browser: 'Chrome' | 'Safari' | 'Firefox' | 'Edge' | 'Unknown';
   version: string;
@@ -11,14 +5,13 @@ export interface BrowserProfile {
   gpu: string;
   webglVersion: string;
   webgpuSupported: boolean;
-  deviceMemory?: number; // GB
+  deviceMemory?: number;
 }
 
 export class BrowserProfiler {
   static getProfile(): BrowserProfile {
     const ua = navigator.userAgent;
     
-    // Detect browser
     let browser: BrowserProfile['browser'] = 'Unknown';
     let version = '';
     
@@ -36,7 +29,6 @@ export class BrowserProfiler {
       version = ua.match(/Edg\/([\d.]+)/)?.[1] || '';
     }
     
-    // Detect GPU
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     let gpu = 'Unknown';
@@ -50,16 +42,13 @@ export class BrowserProfiler {
       webglVersion = 'WebGL 1.0';
     }
     
-    // Detect WebGL 2.0
     const gl2 = canvas.getContext('webgl2');
     if (gl2) {
       webglVersion = 'WebGL 2.0';
     }
     
-    // Detect WebGPU
     const webgpuSupported = 'gpu' in navigator;
     
-    // Detect device memory (Chrome only)
     const deviceMemory = (navigator as any).deviceMemory;
     
     return {
@@ -82,9 +71,6 @@ export class BrowserProfiler {
     return JSON.stringify(this.getProfile(), null, 2);
   }
   
-  /**
-   * Check if the current environment is suitable for benchmarking
-   */
   static isBenchmarkReady(): { ready: boolean; issues: string[] } {
     const profile = this.getProfile();
     const issues: string[] = [];

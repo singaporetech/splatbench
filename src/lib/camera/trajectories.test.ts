@@ -17,7 +17,7 @@ import {
 } from './trajectories';
 import { MetricsCollector } from '../metrics/collector';
 
-// ─── Orbit Trajectory Tests ─────────────────────────────────────────────────
+// ─── Orbit Trajectory Tests ──────────────────────────────────────────────────
 
 describe('generateOrbitTrajectory', () => {
   it('generates correct number of keyframes', () => {
@@ -55,7 +55,7 @@ describe('generateOrbitTrajectory', () => {
     const config = { ...DEFAULT_ORBIT_CONFIG, arcDegrees: 360, frameCount: 100 };
     const result = generateOrbitTrajectory(config);
 
-    // Note: last frame t=1 means full 360, position should equal frame 0
+    // last frame t=1 means full 360, so position should equal frame 0
     const first = result.keyframes[0].position;
     const last = result.keyframes[result.keyframes.length - 1].position;
     expect(first.distanceTo(last)).toBeLessThan(0.001);
@@ -105,7 +105,7 @@ describe('generateOrbitTrajectory', () => {
   });
 });
 
-// ─── Dolly Trajectory Tests ─────────────────────────────────────────────────
+// ─── Dolly Trajectory Tests ──────────────────────────────────────────────────
 
 describe('generateDollyTrajectory', () => {
   it('generates correct number of keyframes', () => {
@@ -134,7 +134,7 @@ describe('generateDollyTrajectory', () => {
     for (let i = 1; i < result.keyframes.length; i++) {
       const prevDist = result.keyframes[i - 1].position.distanceTo(result.keyframes[i - 1].target);
       const currDist = result.keyframes[i].position.distanceTo(result.keyframes[i].target);
-      expect(currDist).toBeLessThanOrEqual(prevDist + 0.001); // Approaching
+      expect(currDist).toBeLessThanOrEqual(prevDist + 0.001);
     }
   });
 
@@ -156,7 +156,7 @@ describe('generateDollyTrajectory', () => {
   });
 });
 
-// ─── Pan Trajectory Tests ───────────────────────────────────────────────────
+// ─── Pan Trajectory Tests ────────────────────────────────────────────────────
 
 describe('generatePanTrajectory', () => {
   it('generates correct number of keyframes', () => {
@@ -172,9 +172,9 @@ describe('generatePanTrajectory', () => {
     const firstX = result.keyframes[0].position.x;
     const lastX = result.keyframes[result.keyframes.length - 1].position.x;
 
-    // Pan goes from -halfSweep to +halfSweep with cosine smoothing
-    // At t=0: smoothT=0, lateral = -3 (left edge)
-    // At t=1: smoothT=1, lateral = +3 (right edge)
+    // pan goes from -halfSweep to +halfSweep with cosine smoothing
+    // at t=0, smoothT=0 and lateral=-3
+    // at t=1, smoothT=1 and lateral=+3
     expect(firstX).toBeCloseTo(-3 + config.center.x, 1);
     expect(lastX).toBeCloseTo(3 + config.center.x, 1);
   });
@@ -204,7 +204,7 @@ describe('generatePanTrajectory', () => {
   });
 });
 
-// ─── generateTrajectory Dispatcher Tests ────────────────────────────────────
+// ─── generateTrajectory Dispatcher Tests ─────────────────────────────────────
 
 describe('generateTrajectory', () => {
   it('dispatches orbit config correctly', () => {
@@ -239,12 +239,12 @@ describe('generateTrajectory', () => {
   });
 });
 
-// ─── MetricsCollector Tests ─────────────────────────────────────────────────
+// ─── MetricsCollector Tests ──────────────────────────────────────────────────
 
 describe('MetricsCollector', () => {
   it('tracks FPS correctly', () => {
     const collector = new MetricsCollector();
-    // Simulate 60fps (16.67ms per frame)
+    // simulate 60fps at 16.67ms per frame
     for (let i = 0; i < 60; i++) {
       collector.recordFrame(16.67);
     }
@@ -262,7 +262,7 @@ describe('MetricsCollector', () => {
 
   it('respects maxFrames sliding window', () => {
     const collector = new MetricsCollector();
-    // Record 400 frames (maxFrames is 300)
+    // record 400 frames with maxFrames capped at 300
     for (let i = 0; i < 400; i++) {
       collector.recordFrame(16.67);
     }
@@ -291,8 +291,8 @@ describe('MetricsCollector', () => {
     collector.recordFrame(10);
     collector.recordFrame(20);
     collector.recordFrame(30);
-    // Mean=20, variance = ((10-20)^2 + (20-20)^2 + (30-20)^2) / 3 = 200/3
-    // StdDev = sqrt(200/3) ~= 8.165
+    // mean=20, variance=((10-20)^2 + (20-20)^2 + (30-20)^2) / 3 = 200/3
+    // stdDev=sqrt(200/3) ~= 8.165
     expect(collector.getFrameTimeVariance()).toBeCloseTo(8.165, 1);
   });
 

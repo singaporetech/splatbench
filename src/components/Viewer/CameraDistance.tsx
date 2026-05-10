@@ -8,7 +8,6 @@ interface CameraDistanceProps {
 
 /**
  * Displays the current camera distance from the scene center
- * Shows color-coded guidelines for standardized evaluation distances
  */
 export function CameraDistance({ context }: CameraDistanceProps) {
   const [distance, setDistance] = useState<number>(0);
@@ -19,7 +18,6 @@ export function CameraDistance({ context }: CameraDistanceProps) {
       return;
     }
 
-    // Update distance every 100ms
     const interval = setInterval(() => {
       const position = context.camera.position;
       const dist = Math.sqrt(
@@ -37,17 +35,15 @@ export function CameraDistance({ context }: CameraDistanceProps) {
     return null;
   }
 
-  // Standardized distances for bonsai (radius ~1.8 units)
-  // TODO: Calculate these dynamically based on scene bounding sphere
-  const closeDistance = 2.7;   // 1.5× radius
-  const mediumDistance = 6.3;  // 3.5× radius
-  const farDistance = 10.8;    // 6.0× radius
+  // standardized distances for bonsai, radius approximately 1.8 units
+  const closeDistance = 2.7;
+  const mediumDistance = 6.3;
+  const farDistance = 10.8;
 
-  // Determine which range we're in
   let rangeColor = '#FDFDFB';
   let rangeLabel = 'Custom';
   
-  const tolerance = 0.3; // ±0.3 units tolerance
+  const tolerance = 0.3;
 
   if (Math.abs(distance - closeDistance) < tolerance) {
     rangeColor = '#BEFF74';

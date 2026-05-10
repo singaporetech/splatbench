@@ -1,15 +1,3 @@
-/**
- * Static Quality Test
- *
- * Captures the current camera position and computes PSNR/SSIM between
- * the primary and reference viewers. This is the simplest possible test:
- * no camera movement, just a single-frame quality comparison.
- *
- * Requires both viewers to be loaded (primary + reference).
- *
- * Auto-registered when this module is imported.
- */
-
 import type { Test, TestScene, TestResult, OnProgress } from './types';
 import { registerTest } from './registry';
 import { captureFrame } from '../../lib/metrics/trajectoryMetrics';
@@ -51,7 +39,6 @@ const staticQualityTest: Test = {
       phase: 'Capturing',
     });
 
-    // Force renders on both viewers
     scene.primary.forceRender();
     scene.reference.forceRender();
     await waitForFrame();
@@ -75,7 +62,6 @@ const staticQualityTest: Test = {
       phase: 'Computing Metrics',
     });
 
-    // Yield to let UI update
     await new Promise((r) => setTimeout(r, 0));
 
     const psnr = calculatePSNR(frameA, frameB);
@@ -100,8 +86,8 @@ const staticQualityTest: Test = {
 
     const durationMs = performance.now() - startTime;
 
-    // Grade quality based on PSNR at close distance
-    const passed = psnr >= 25; // 25 dB is a reasonable minimum for compressed formats
+    // 25 dB is a reasonable minimum for compressed formats
+    const passed = psnr >= 25;
 
     return {
       testId: 'static-quality',

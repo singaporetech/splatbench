@@ -1,16 +1,5 @@
 /**
- * UI Structure Tests for TestPanel
- *
- * These tests verify that the recent UI polish changes are correctly
- * implemented in the TestPanel component source code. Since the test
- * environment doesn't include a DOM renderer (jsdom/happy-dom), we
- * verify the source structure directly.
- *
- * Verified changes:
- * 1. Flat numbered test list (no "Quality Tests" / "Trajectory Tests" headers)
- * 2. Descriptions moved to InfoTooltip (not rendered as visible text)
- * 3. Sticky progress bar at top of panel
- * 4. Viewport-aware tooltip positioning
+ * Source-structure checks for TestPanel behavior that needs a DOM renderer.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -20,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function readComponent(relativePath: string): string {
   const fullPath = resolve(TEST_DIR, '../../components/Testing', relativePath);
@@ -32,51 +21,48 @@ function readUIComponent(relativePath: string): string {
   return readFileSync(fullPath, 'utf-8');
 }
 
-// ─── Tests ──────────────────────────────────────────────────────────────────
+// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('TestPanel UI Structure', () => {
   const testPanelSource = readComponent('TestPanel.tsx');
 
-  // ─── 1. Flat Numbered Test List ───────────────────────────────────────
+  // ─── 1. Flat Numbered Test List ────────────────────────────────────────────
 
   describe('flat numbered test list', () => {
     it('does NOT render category section headers', () => {
-      // The old UI had "Quality Tests" and "Trajectory Tests" as section headers.
-      // The new flat list should not contain these strings.
+      // old category headers should not appear in the flat list
       expect(testPanelSource).not.toContain('Quality Tests');
       expect(testPanelSource).not.toContain('Trajectory Tests');
     });
 
     it('does NOT group tests by category in the render', () => {
-      // Should not use getTestsByCategory or getCategories in the component
+      // component should not group tests by category
       expect(testPanelSource).not.toContain('getTestsByCategory');
       expect(testPanelSource).not.toContain('getCategories');
     });
 
     it('renders tests with sequential index numbers', () => {
-      // The flat list uses {index + 1} for numbering each test
+      // flat list uses {index + 1} for numbering each test
       expect(testPanelSource).toContain('index + 1');
     });
 
     it('iterates tests with a single map (flat iteration)', () => {
-      // The test list should use runner.tests.map() directly, not nested maps per category
+      // test list should use runner.tests.map() directly
       expect(testPanelSource).toContain('runner.tests.map');
     });
   });
 
-  // ─── 2. Descriptions in Tooltips (Not Visible Text) ──────────────────
+  // ─── 2. Descriptions in Tooltips (Not Visible Text) ────────────────────────
 
   describe('descriptions in tooltips', () => {
     it('renders descriptions via InfoTooltip component', () => {
-      // Each test's description should be passed to InfoTooltip
+      // each test description should be passed to InfoTooltip
       expect(testPanelSource).toContain('InfoTooltip');
       expect(testPanelSource).toContain('test.description');
     });
 
     it('does NOT render description as a separate paragraph below the test name', () => {
-      // Old pattern: <p>{test.description}</p> or <div>{test.description}</div> as visible text
-      // The description should only appear inside InfoTooltip text prop
-      // Check there's no standalone rendering of test.description outside InfoTooltip
+      // description should only appear inside InfoTooltip text prop
       const lines = testPanelSource.split('\n');
       const descriptionUsages = lines.filter(
         (line) => line.includes('test.description') && !line.includes('InfoTooltip'),
@@ -85,7 +71,7 @@ describe('TestPanel UI Structure', () => {
     });
   });
 
-  // ─── 3. Sticky Progress Bar ───────────────────────────────────────────
+  // ─── 3. Sticky Progress Bar ────────────────────────────────────────────────
 
   describe('sticky progress bar', () => {
     it('has a sticky-positioned progress container', () => {
@@ -97,23 +83,22 @@ describe('TestPanel UI Structure', () => {
     });
 
     it('has a z-index to stay above other content', () => {
-      // The sticky progress bar should have a z-index
+      // sticky progress bar should have a z-index
       expect(testPanelSource).toContain('zIndex');
     });
 
     it('progress bar appears before the test list', () => {
-      // The sticky progress container should come before the test list rendering
+      // sticky progress container should come before the test list
       const stickyIndex = testPanelSource.indexOf("position: 'sticky'");
       const testListIndex = testPanelSource.indexOf('runner.tests.map');
       expect(stickyIndex).toBeLessThan(testListIndex);
     });
   });
 
-  // ─── 4. Viewport-Aware Tooltip Positioning ────────────────────────────
+  // ─── 4. Viewport-Aware Tooltip Positioning ─────────────────────────────────
 
   describe('viewport-aware tooltip positioning', () => {
-    // InfoTooltip was extracted to a shared component in UI/InfoTooltip.tsx.
-    // These tests verify the shared component's implementation.
+    // shared InfoTooltip handles viewport-aware positioning
     const infoTooltipSource = readUIComponent('InfoTooltip.tsx');
 
     it('InfoTooltip uses a ref for position detection', () => {
@@ -157,7 +142,7 @@ describe('TestPanel UI Structure', () => {
   });
 });
 
-// ─── BatchTestPanel structure checks ────────────────────────────────────────
+// ─── BatchTestPanel structure checks ─────────────────────────────────────────
 
 describe('BatchTestPanel UI Structure', () => {
   const batchPanelSource = readComponent('BatchTestPanel.tsx');

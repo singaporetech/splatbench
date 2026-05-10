@@ -5,7 +5,7 @@ import type { SparkViewerContext } from '../../types';
 
 interface CameraPresetPanelProps {
   viewerContext: SparkViewerContext | null;
-  sceneName?: string; // e.g., "bonsai", "truck"
+  sceneName?: string;
   onPresetApplied?: (preset: ViewpointPreset) => void;
 }
 
@@ -17,7 +17,6 @@ export function CameraPresetPanel({
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [showCustom, setShowCustom] = useState(false);
   
-  // Get presets - either scene-specific or standard
   const presets = sceneName 
     ? getScenePresets(sceneName)
     : STANDARD_VIEWPOINTS;
@@ -27,10 +26,8 @@ export function CameraPresetPanel({
     
     const { camera, controls } = viewerContext;
     
-    // Stop any ongoing rotation/pan/zoom momentum from previous interaction
     resetControlsMomentum(controls);
     
-    // Apply the preset
     const targetPos = {
       x: preset.position.x,
       y: preset.position.y,
@@ -49,10 +46,8 @@ export function CameraPresetPanel({
     
     setActivePreset(preset.id);
     
-    // Notify parent
     onPresetApplied?.(preset);
     
-    // Log for debugging
     console.log(`[CameraPreset] Applied: ${preset.name}`, {
       position: camera.position.toArray(),
       distance: camera.position.length().toFixed(2),
@@ -80,7 +75,6 @@ export function CameraPresetPanel({
       },
     };
     
-    // In a full implementation, this would save to localStorage or backend
     console.log('[CameraPreset] Saved custom view:', customPreset);
     alert(`Saved custom view at distance ${camera.position.length().toFixed(2)}`);
   };
@@ -106,7 +100,7 @@ export function CameraPresetPanel({
         )}
       </div>
       
-      {/* Preset buttons */}
+      {/* preset buttons */}
       <div className="space-y-1">
         {presets.map((preset, index) => (
           <button
@@ -132,7 +126,7 @@ export function CameraPresetPanel({
         ))}
       </div>
       
-      {/* Custom view option */}
+      {/* custom view option */}
       <div className="mt-3 pt-2 border-t border-gray-700">
         <button
           onClick={() => setShowCustom(!showCustom)}
@@ -157,7 +151,7 @@ export function CameraPresetPanel({
         )}
       </div>
       
-      {/* Keyboard shortcuts hint */}
+      {/* keyboard shortcuts hint */}
       <div className="mt-3 pt-2 border-t border-gray-700 text-xs text-gray-500">
         Press 1-5 to quick-select
       </div>

@@ -1,6 +1,4 @@
 /**
- * InfoTooltip: Shared tooltip component with touch-friendly activation.
- *
  * Desktop (mouse): hover to show, mouseout to hide.
  * Touch devices: tap the info icon to toggle; tap outside to dismiss.
  *
@@ -67,7 +65,7 @@ export function InfoTooltip({ text }: { text: string }) {
     };
   }, [show, updatePosition]);
 
-  // Only show on hover for mouse pointers (not touch)
+  // only show hover state for mouse pointers
   const handlePointerEnter = useCallback(
     (e: React.PointerEvent) => {
       if (e.pointerType === 'mouse') {
@@ -84,7 +82,7 @@ export function InfoTooltip({ text }: { text: string }) {
     }
   }, []);
 
-  // Tap-outside-to-dismiss for touch devices
+  // tap outside to dismiss on touch devices
   useEffect(() => {
     if (!show) return;
     const handleOutside = (e: Event) => {
