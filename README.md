@@ -6,62 +6,76 @@
 > the standard datasets used in the paper. Quick start: `npm install &&
 > npm test && npm run dev` (see [Quick Start](#quick-start) and [Testing](#testing)).
 
-**3D Gaussian Splatting Benchmark** - A research-grade benchmarking platform for evaluating 3D Gaussian Splatting web deployment formats. Built for academic comparison and quality assessment of compression techniques.
+SplatBench evaluates 3D Gaussian Splatting (3DGS) web deployment formats — `.ply`, `.splat`, `.ksplat`, `.spz` — under reproducible browser conditions. It pairs side-by-side reference and test viewers with synchronized cameras, image-quality metrics (PSNR, SSIM), and runtime measurements (load time, frame rate, frame-time variance) so the same protocol can be used for interactive inspection and unattended batch runs.
 
-
-
-## Purpose
-
-SplatBench provides **standardized, reproducible benchmarks** for comparing different 3DGS web formats (.ply, .splat, .ksplat, .spz) with:
-- **Side-by-side comparison** - Reference vs test model comparison with synchronized cameras
-- **Quality metrics** - PSNR and SSIM calculations for objective evaluation
-- **Performance profiling** - FPS, load time, memory usage, and file size
-- **Academic rigor** - Designed for research papers and technical reports
-
-Part of the **SIGGRAPH Asia 2026** submission on web-based 3D Gaussian Splatting deployment.
+Part of the **SIGGRAPH Asia 2026** submission on web-based 3DGS deployment.
 
 ---
 
 ## Features
 
-### Dual Viewer System
-- **Reference & Test panels** - Load a reference model (left) and test model (right) for direct comparison
-- **Camera synchronization** - Move both viewers together for consistent viewpoints
-- **Real-time rendering** - 60+ FPS performance with Three.js + Spark renderer
+### Dual viewers
+- **Reference and test panels** — left/right viewers that share a single synchronized camera so both renders sit at exactly the same pose.
+- **A/B comparison slider** — a draggable divider overlays the reference and test renders in one frame, so format artefacts (lost foliage texture, softened text, motion-conditioned shimmer) can be inspected side-by-side at the same camera pose.
+- Three.js + Spark renderer.
 
-### Comprehensive Metrics
-- **Quality Metrics**
-  - **PSNR** (Peak Signal-to-Noise Ratio) - Objective quality measurement
-  - **SSIM** (Structural Similarity Index) - Perceptual quality assessment
-  - **Auto-compare** - Automatically computes metrics when both files load
-  
-- **Performance Metrics**
-  - **FPS** (Frames Per Second) - Real-time rendering performance
-  - **Frame Time** - Milliseconds per frame
-  - **Memory Usage** - JavaScript heap (Chrome only)
-  - **Load Time** - Time from file selection to first render
-  
-- **File Information**
-  - **File Size** - Compressed size in MB
-  - **Splat Count** - Number of Gaussian splats
-  - **Format Detection** - Automatic format identification
+### Metrics
+- **Image quality:** PSNR and SSIM, computed on demand when both viewers have a model loaded.
+- **Runtime:** frame rate, frame time, load time (selection-to-first-render), and JS-heap memory (Chrome only).
+- **File:** byte size, splat count, and detected format.
 
-### Interactive Controls
-- **Orbit Controls** - Rotate, pan, and zoom with mouse/trackpad
-- **Camera Distance Display** - Color-coded distance indicators for standardized evaluation
-- **Drag-and-Drop** - Easy file loading with visual feedback
+### Interaction
+- Orbit / pan / zoom controls (mouse or trackpad).
+- Camera-distance readout with the close / medium / far protocol presets used for evaluation.
+- Drag-and-drop file loading.
 
-### Format Support
-- **`.ply`** - Original PLY format (56MB baseline)
-- **`.splat`** - Standard splat format (7.1MB, ~87% smaller)
-- **`.ksplat`** - K-splat compressed (5.4MB, ~90% smaller)
-- **`.spz`** - Niantic SPZ format (3.6MB, ~94% smaller)
+### Supported formats
+- `.ply` — uncompressed baseline
+- `.splat` — standard splat
+- `.ksplat` — K-splat compressed
+- `.spz` — Niantic SPZ compressed
+
+Measured file sizes, quality, and runtime cost are scene- and
+configuration-dependent; see the accompanying paper for the values reported
+in this study.
+
+---
+
+## Usage Modes
+
+SplatBench supports two complementary usage modes that map onto common
+research workflows. Both modes record the same reproducibility context —
+screenshots, browser version, GPU, timestamps, and camera settings — so
+results from interactive exploration and batch runs are directly
+comparable.
+
+### Interactive Mode (Web UI)
+
+Drag-and-drop a reference model and a test model, share a single
+synchronized camera between the two viewers, and use the A/B comparison
+slider to inspect a viewpoint under a draggable divider. PSNR/SSIM are
+computed on demand and screenshots can be captured at any pose. This is
+the mode used to localize where a format degrades a specific scene —
+i.e., when aggregate metrics agree numerically but disagree
+perceptually, or when one scene is driving a headline result.
+
+### Batch Mode (Automated)
+
+Point the Batch Test Panel at a folder of paired files
+(`ref_<name>.<ext>` / `test_<name>.<ext>`). When pair names follow the
+`<scene>-<format>` paper pattern, the runner expands each pair into the
+full paper matrix — five standardized viewpoints × three replicates ×
+all registered tests (orbit / dolly / pan trajectories plus static
+quality) — and runs them unattended; results stream into a paper-CSV
+export. The protocol that produced the paper's tables can therefore be
+re-run, audited, or extended to new scenes and formats without modifying
+the evaluation contract.
 
 ---
 
 ## Benchmark Models
 
-SplatBench evaluates 3DGS web deployment formats using established benchmark scenes from the research community. The following datasets are used in the original [3D Gaussian Splatting paper](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) (Kerbl et al., SIGGRAPH 2023) and are standard benchmarks across the field.
+SplatBench evaluates 3DGS web deployment formats using established benchmark scenes from the research community. The following datasets are used in the original [3D Gaussian Splatting paper](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) (Kerbl et al., SIGGRAPH 2023; [doi:10.1145/3592433](https://doi.org/10.1145/3592433)) and are standard benchmarks across the field.
 
 ### Pre-trained 3DGS Models (Recommended)
 
@@ -73,53 +87,33 @@ The fastest way to get started is to download the **official pre-trained models*
 
 Each scene folder contains `point_cloud/iteration_7000/` and `point_cloud/iteration_30000/` subdirectories. Use the `iteration_30000` PLY files for best quality.
 
-> **Note:** The project already includes `bonsai.ply` as a reference model (gitignored, not tracked in version control due to file size). If you trained your own bonsai model, it will be approximately 56 MB in PLY format.
+> **Note:** Splat assets (including `bonsai.ply`) are not bundled with this
+> archive due to file size. See the accompanying paper for the file sizes,
+> splat counts, and per-format figures measured in this study.
 
 ### Source Datasets (Training Data)
 
 If you want to train your own 3DGS models or need the source images for evaluation:
 
-#### 1. Mip-NeRF 360 (Barron et al., CVPR 2022)
+#### 1. Mip-NeRF 360 (Barron et al., CVPR 2022; [doi:10.1109/CVPR52688.2022.00539](https://doi.org/10.1109/CVPR52688.2022.00539))
 
-The primary benchmark dataset for 3DGS evaluation. Contains 9 scenes (5 outdoor, 4 indoor) with 360-degree captures.
-
-| Scene | Type | Typical PLY Size |
-|-------|------|-----------------|
-| bicycle | outdoor | ~55 MB |
-| garden | outdoor | ~60 MB |
-| stump | outdoor | ~50 MB |
-| flowers | outdoor | ~45 MB |
-| treehill | outdoor | ~45 MB |
-| bonsai | indoor | ~56 MB |
-| counter | indoor | ~50 MB |
-| kitchen | indoor | ~55 MB |
-| room | indoor | ~50 MB |
+The primary benchmark dataset for 3DGS evaluation. Contains 9 scenes (5 outdoor, 4 indoor) with 360-degree captures: `bicycle`, `garden`, `stump`, `flowers`, `treehill` (outdoor) and `bonsai`, `counter`, `kitchen`, `room` (indoor).
 
 - **Download:** [jonbarron.info/mipnerf360](https://jonbarron.info/mipnerf360/) or directly via `wget http://storage.googleapis.com/gresearch/refraw360/360_v2.zip`
 - **Format:** Source images + COLMAP sparse reconstruction
 - **Note:** The `treehill` and `flowers` scenes require requesting access from the authors
 
-#### 2. Tanks and Temples (Knapitsch et al., 2017)
+#### 2. Tanks and Temples (Knapitsch et al., SIGGRAPH 2017; [doi:10.1145/3072959.3073599](https://doi.org/10.1145/3072959.3073599))
 
-Large-scale indoor/outdoor scenes commonly used for 3DGS benchmarking.
-
-| Scene | Type | Typical PLY Size |
-|-------|------|-----------------|
-| truck | outdoor | ~65 MB |
-| train | outdoor | ~55 MB |
+Large-scale indoor/outdoor scenes commonly used for 3DGS benchmarking. The 3DGS authors provide pre-processed COLMAP reconstructions for the `truck` and `train` scenes.
 
 - **Download (COLMAP data):** [tandt_db.zip (650 MB)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/datasets/input/tandt_db.zip) from the 3DGS authors (includes both T&T and Deep Blending scenes)
 - **Original dataset:** [tanksandtemples.org/download](https://tanksandtemples.org/download/)
 - **Format:** Source images + COLMAP sparse reconstruction
 
-#### 3. Deep Blending (Hedman et al., SIGGRAPH Asia 2018)
+#### 3. Deep Blending (Hedman et al., SIGGRAPH Asia 2018; [doi:10.1145/3272127.3275084](https://doi.org/10.1145/3272127.3275084))
 
-Indoor scenes with complex lighting and reflections.
-
-| Scene | Type | Typical PLY Size |
-|-------|------|-----------------|
-| drjohnson | indoor | ~60 MB |
-| playroom | indoor | ~55 MB |
+Indoor scenes with complex lighting and reflections. The 3DGS authors' archive provides COLMAP reconstructions for the `drjohnson` and `playroom` scenes.
 
 - **Download (COLMAP data):** Included in [tandt_db.zip (650 MB)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/datasets/input/tandt_db.zip) above
 - **Original dataset:** [Deep Blending datasets page](https://www-sop.inria.fr/reves/publis/2018/HPPFDB18/datasets.html)
@@ -138,7 +132,7 @@ The pre-trained models provide `.ply` files. To benchmark other formats in Splat
 
 - **[splat-transform](https://github.com/playcanvas/splat-transform)** (PlayCanvas CLI tool): Converts between PLY, SPLAT, KSPLAT, SOG, SPZ, and CSV formats.
   ```bash
-  npm install -g @nicedoc/splat-transform
+  npm install -g @playcanvas/splat-transform
   splat-transform input.ply output.splat
   splat-transform input.ply output.ksplat
   ```
@@ -149,14 +143,14 @@ The pre-trained models provide `.ply` files. To benchmark other formats in Splat
   ./spz_encode input.ply output.spz
   ```
 
-#### Typical File Sizes After Conversion (Bonsai Scene, ~234K splats)
+#### Format Trade-offs After Conversion
 
-| Format | File Size | Compression vs PLY |
-|--------|-----------|-------------------|
-| `.ply` | ~56 MB | baseline |
-| `.splat` | ~7.1 MB | ~87% smaller |
-| `.ksplat` | ~5.4 MB | ~90% smaller |
-| `.spz` | ~3.6 MB | ~94% smaller |
+`.ply` is the uncompressed baseline; `.splat`, `.ksplat`, and `.spz` are
+compressed alternatives that trade off file size, fidelity, and runtime
+cost in different ways. The trade-offs depend on the scene, the trained
+Gaussian count, and the converter settings, so we do not quote canonical
+numbers here — see the accompanying paper for the values measured in this
+study, and re-measure on your own content for any deployment decision.
 
 ### Pre-converted .splat Files
 
@@ -173,6 +167,7 @@ Some sources provide pre-converted `.splat` files that you can load directly:
 
 ```bash
 npm install
+npm test       # run the unit-test suite once
 npm run dev
 ```
 
@@ -187,45 +182,32 @@ npm run preview  # Preview production build
 
 ---
 
-## Academic Usage
+## Evaluation Protocol
 
-### Reproducible Benchmarks
+The protocol used by both interactive and batch runs is fixed so that
+results are directly comparable across sessions, machines, and reviewers.
 
-SplatBench is designed for **reproducible research**:
+1. **Camera distances** (radius-relative, with a colour-coded readout in
+   the UI):
+   - Close — 1.5× radius (≈ 2.7 units in the bonsai scene); primary
+     fidelity metric.
+   - Medium — 3.5× radius (≈ 6.3 units); typical web viewing distance.
+   - Far — 6.0× radius (≈ 10.8 units); perceptual-equivalence regime.
 
-1. **Standardized Camera Positions** - Color-coded distance indicators
-   - Close: 2.7 units (1.5× radius) - Primary metric
-   - Medium: 6.3 units (3.5× radius) - Web viewing distance
-   - Far: 10.8 units (6.0× radius) - Perceptual equivalence
+2. **Measurement:** camera-synchronised viewers; PSNR and SSIM computed
+   per frame against the reference; frame-rate and frame-time statistics
+   accumulated over rolling windows.
 
-2. **Consistent Evaluation**
-   - Camera sync ensures identical viewpoints
-   - PSNR/SSIM computed frame-by-frame
-   - Performance metrics averaged over 60 frames
-
-3. **Export-Ready Metrics**
-   - Timestamps for all measurements
-   - Side-by-side comparison tables
-   - Ready for academic paper inclusion
-
-### Citation
-
-If you use SplatBench in your research, please cite:
-
-```bibtex
-@inproceedings{splatbench2026,
-  title={SplatBench: Benchmarking 3D Gaussian Splatting Web Deployment},
-  author={[Your Name]},
-  booktitle={SIGGRAPH Asia 2026},
-  year={2026}
-}
-```
+3. **Export:** every measurement is timestamped and tagged with the
+   browser, GPU, scene, format, viewpoint, and replicate index, and is
+   written to a paper-CSV that maps directly onto the tables and figures
+   in the accompanying paper.
 
 ---
 
 ## Modular Test Architecture
 
-SplatBench uses a modular test system that makes it easy to add new benchmarks. Every evaluation (trajectory tests, quality comparisons, stress tests) is a **Test** registered in a central registry and automatically discovered by the UI.
+SplatBench uses a modular test system that makes it easy to add new benchmarks. Every evaluation (trajectory tests, quality comparisons, stress tests) is a **Test** registered in a central registry and automatically discovered by the UI. The same registry is also what [Batch Mode](#batch-mode-automated) iterates over, so any new test added here is picked up by both interactive and unattended runs without protocol changes.
 
 ### Core Concepts
 
@@ -308,7 +290,7 @@ export { myTest };
 export { myTest } from './myNewTest';
 ```
 
-3. **Done.** The test appears in the Tests tab immediately, grouped under "My Category".
+3. The test appears in the Tests tab on next reload, grouped under its declared category.
 
 ### Running Tests in the UI
 
@@ -325,42 +307,10 @@ export { myTest } from './myNewTest';
 
 - **Framework**: React 19 + TypeScript
 - **Build Tool**: Vite 7.3
-- **3D Rendering**: Three.js 0.182 + **[@sparkjsdev/spark](https://github.com/worldlabs-xyz/spark)**
+- **3D Rendering**: Three.js 0.182 + **[@sparkjsdev/spark](https://github.com/sparkjsdev/spark)**
 - **Styling**: Tailwind CSS v4
 - **Quality Metrics**: Custom PSNR/SSIM implementation
 - **Deployment**: GitHub Pages (optional)
-
-### Major Update: Spark Renderer
-
-**SplatBench now uses Spark by World Labs** - Migrated from the abandoned `@mkkellogg/gaussian-splats-3d` to the actively maintained `@sparkjsdev/spark` renderer.
-
-**Why Spark?**
-- **Active development** - Backed by World Labs team
-- **Better performance** - Optimized for mobile and low-power devices
-- **Native format support** - Built-in .spz, .sog support
-- **Three.js compatible** - Works like standard Three.js objects
-- **Future-proof** - Ongoing updates and maintenance
-
-**Migration Details:**
-- Standard Three.js scene structure (Scene, Camera, Renderer, OrbitControls)
-- Uses `fileBytes` (ArrayBuffer) for reliable file loading
-- Explicit format detection for all file types
-- Maintains full backward compatibility with existing metrics
-
----
-
-## Performance
-
-Typical performance on modern hardware (M1/M2 Mac, RTX 3060+):
-
-| Format | File Size | Load Time | FPS | Memory |
-|--------|-----------|-----------|-----|--------|
-| .ply | 56.0 MB | 1000ms | 60+ | ~500MB |
-| .splat | 7.1 MB | 300ms | 60+ | ~250MB |
-| .ksplat | 5.4 MB | 250ms | 60+ | ~200MB |
-| .spz | 3.6 MB | 200ms | 60+ | ~150MB |
-
-*Results for bonsai scene (233,992 splats) on Chrome/M2 Mac*
 
 ---
 
@@ -401,18 +351,17 @@ Tests use [Vitest](https://vitest.dev/) and run entirely in Node (no browser req
 1. **File Loading**
    - [ ] Load .ply file into reference model (left pane)
    - [ ] Load .splat file into test model (right pane)
-   - [ ] Verify splat counts match (233,992)
+   - [ ] Verify splat counts match between the two formats for the same scene
    - [ ] Test .ksplat and .spz formats
 
 2. **Rendering**
-   - [ ] Confirm 60+ FPS on both viewers
-   - [ ] Verify bonsai tree renders correctly
+   - [ ] Confirm both viewers render without stutter or visible artefacts
+   - [ ] Verify the scene renders correctly (e.g., bonsai tree shape)
    - [ ] Check camera controls (rotate, pan, zoom)
 
 3. **Quality Metrics**
    - [ ] Auto-compare triggers after both load
-   - [ ] PSNR shows expected value (~60 dB for same scene)
-   - [ ] SSIM shows expected value (~1.0 for same scene)
+   - [ ] Sanity check: comparing a model against itself yields very high PSNR and SSIM near 1.0 (self-comparison only — not a benchmark result)
 
 4. **Performance**
    - [ ] No console errors
@@ -425,10 +374,10 @@ This package does **not** ship with splat assets. To run the manual checklist
 above, place the four bonsai variants under `public/` (or load them via the
 in-app drag-and-drop). See [Benchmark Models](#benchmark-models) for download
 and conversion instructions:
-- `bonsai.ply` (~56 MB) - Original PLY format (download from the 3DGS authors)
-- `bonsai.splat` (~7.1 MB) - Standard splat (convert with `splat-transform`)
-- `bonsai.ksplat` (~5.4 MB) - K-splat compressed (convert with `splat-transform`)
-- `bonsai.spz` (~3.6 MB) - Niantic SPZ (convert with the SPZ encoder)
+- `bonsai.ply` — Original PLY format (download from the 3DGS authors)
+- `bonsai.splat` — Standard splat (convert with `splat-transform`)
+- `bonsai.ksplat` — K-splat compressed (convert with `splat-transform`)
+- `bonsai.spz` — Niantic SPZ (convert with the SPZ encoder)
 
 ---
 
@@ -475,11 +424,28 @@ MIT License - See [LICENSE](./LICENSE) for details.
 
 ## Related Work
 
-- [3D Gaussian Splatting](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) - Original paper
-- [Spark by World Labs](https://github.com/worldlabs-xyz/spark) - Renderer used by SplatBench
-- [antimatter15/splat](https://github.com/antimatter15/splat) - Original .splat format
-- [PlayCanvas .ply compression](https://github.com/playcanvas/engine) - Compression techniques
-- [Niantic SPZ format](https://github.com/nianticlabs/spz) - Compressed format
+- [3D Gaussian Splatting](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) - Kerbl et al., SIGGRAPH 2023 ([doi:10.1145/3592433](https://doi.org/10.1145/3592433))
+- [Spark](https://github.com/sparkjsdev/spark) - Three.js-based 3DGS renderer used by SplatBench
+- [antimatter15/splat](https://github.com/antimatter15/splat) - Original `.splat` format reference implementation
+- [PlayCanvas engine](https://github.com/playcanvas/engine) - Open-source engine with `.ply`/splat compression tooling
+- [Niantic SPZ](https://github.com/nianticlabs/spz) - `.spz` compressed format
+
+### Cited Datasets
+
+- Kerbl, B., Kopanas, G., Leimkühler, T., & Drettakis, G. (2023). 3D Gaussian
+  Splatting for Real-Time Radiance Field Rendering. *ACM Transactions on
+  Graphics*, 42(4), 1–14. [doi:10.1145/3592433](https://doi.org/10.1145/3592433).
+- Barron, J. T., Mildenhall, B., Verbin, D., Srinivasan, P. P., & Hedman, P.
+  (2022). Mip-NeRF 360: Unbounded Anti-Aliased Neural Radiance Fields. In
+  *IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*,
+  5460–5469. [doi:10.1109/CVPR52688.2022.00539](https://doi.org/10.1109/CVPR52688.2022.00539).
+- Knapitsch, A., Park, J., Zhou, Q.-Y., & Koltun, V. (2017). Tanks and
+  Temples: Benchmarking Large-Scale Scene Reconstruction. *ACM Transactions
+  on Graphics*, 36(4), 1–13. [doi:10.1145/3072959.3073599](https://doi.org/10.1145/3072959.3073599).
+- Hedman, P., Philip, J., Price, T., Frahm, J.-M., Drettakis, G., & Brostow,
+  G. (2018). Deep Blending for Free-Viewpoint Image-Based Rendering. *ACM
+  Transactions on Graphics*, 37(6), 1–15.
+  [doi:10.1145/3272127.3275084](https://doi.org/10.1145/3272127.3275084).
 
 ---
 
@@ -489,6 +455,3 @@ This package accompanies the paper submission. For methodology details, see
 the accompanying paper PDF. For questions or academic collaboration after
 review, contact information will be provided in the camera-ready version.
 
----
-
-**Built for researchers, by researchers.**
