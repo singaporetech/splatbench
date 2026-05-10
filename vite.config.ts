@@ -6,11 +6,7 @@ export default defineConfig(({ command }) => ({
   plugins: [react()],
   base: command === 'build' ? '/splatbench/' : '/', // GitHub Pages base path only for production
   server: {
-    allowedHosts: [
-      'chekpoint.singapura-broadnose.ts.net',
-      '100.80.98.29',
-      '192.168.129.66',
-      'localhost',
-    ],
+    // Add your dev hostnames here if running behind a tunnel or LAN.
+    allowedHosts: ['localhost'],
   },
 }))

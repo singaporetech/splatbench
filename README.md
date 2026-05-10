@@ -1,8 +1,14 @@
 # SplatBench
 
+> **Paper Submission Supplement.** This archive accompanies the paper
+> submission and contains the full SplatBench source. No splat assets are
+> included; see [Benchmark Models](#benchmark-models) for download links to
+> the standard datasets used in the paper. Quick start: `npm install &&
+> npm test && npm run dev` (see [Quick Start](#quick-start) and [Testing](#testing)).
+
 **3D Gaussian Splatting Benchmark** - A research-grade benchmarking platform for evaluating 3D Gaussian Splatting web deployment formats. Built for academic comparison and quality assessment of compression techniques.
 
-![SplatBench Screenshot](./screenshot.png)
+
 
 ## Purpose
 
@@ -415,11 +421,14 @@ Tests use [Vitest](https://vitest.dev/) and run entirely in Node (no browser req
 
 ### Test Files
 
-Sample files available in `public/` directory:
-- `bonsai.ply` (56MB) - Original PLY format
-- `bonsai.splat` (7.1MB) - Standard splat
-- `bonsai.ksplat` (5.4MB) - K-splat compressed
-- `bonsai.spz` (3.6MB) - Niantic SPZ
+This package does **not** ship with splat assets. To run the manual checklist
+above, place the four bonsai variants under `public/` (or load them via the
+in-app drag-and-drop). See [Benchmark Models](#benchmark-models) for download
+and conversion instructions:
+- `bonsai.ply` (~56 MB) - Original PLY format (download from the 3DGS authors)
+- `bonsai.splat` (~7.1 MB) - Standard splat (convert with `splat-transform`)
+- `bonsai.ksplat` (~5.4 MB) - K-splat compressed (convert with `splat-transform`)
+- `bonsai.spz` (~3.6 MB) - Niantic SPZ (convert with the SPZ encoder)
 
 ---
 
@@ -442,7 +451,7 @@ To enable:
 2. Set Source to "GitHub Actions"
 3. Push to `main` branch
 
-The site will be available at `https://yourusername.github.io/splatbench/`
+The site will be available at `https://<your-org>.github.io/splatbench/`
 
 ---
 
@@ -460,7 +469,7 @@ This is part of an academic research project. Contributions are welcome, especia
 
 ## License
 
-MIT License - See [LICENSE](../LICENSE) for details.
+MIT License - See [LICENSE](./LICENSE) for details.
 
 ---
 
@@ -476,9 +485,9 @@ MIT License - See [LICENSE](../LICENSE) for details.
 
 ## Support
 
-For questions, issues, or academic collaboration:
-- Open an issue on GitHub
-- See the main [research paper](../main.pdf) for methodology details
+This package accompanies the paper submission. For methodology details, see
+the accompanying paper PDF. For questions or academic collaboration after
+review, contact information will be provided in the camera-ready version.
 
 ---
 

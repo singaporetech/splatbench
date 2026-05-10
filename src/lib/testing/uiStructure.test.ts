@@ -173,7 +173,7 @@ describe('BatchTestPanel UI Structure', () => {
   });
 
   it('forces progress bar fill to match displayed 100 percent', () => {
-    expect(batchPanelSource).toContain('Math.round(testRawPercent)');
+    expect(batchPanelSource).toContain('Math.floor(testRawPercent)');
     expect(batchPanelSource).toContain('testBarWidth = testComplete ? 100 : testRawPercent');
   });
 });
@@ -182,7 +182,7 @@ describe('Current-model progress display', () => {
   const testPanelSource = readComponent('TestPanel.tsx');
 
   it('forces active progress bars to fill fully when rounded display reaches 100 percent', () => {
-    expect(testPanelSource).toContain('Math.round(rawPercent)');
+    expect(testPanelSource).toContain('Math.floor(rawPercent)');
     expect(testPanelSource).toContain('barWidth = isComplete ? 100 : rawPercent');
   });
 });
