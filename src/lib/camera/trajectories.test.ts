@@ -1,8 +1,5 @@
 /**
- * Tests for camera trajectory generation.
- *
- * Verifies that trajectory generators produce correct keyframe sequences
- * with proper geometry, frame counts, and t-values.
+ * Known-geometry checks for camera trajectory generation.
  */
 
 import { describe, it, expect } from 'vitest';

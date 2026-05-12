@@ -1,9 +1,5 @@
 /**
- * Comprehensive tests for PSNR and SSIM metric computations.
- *
- * These tests verify that the core image quality metrics produce
- * mathematically correct results for known inputs. Critical for
- * research paper validity.
+ * Known-input checks for PSNR and SSIM metric computations.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -11,7 +7,7 @@ import { calculatePSNR, calculateSSIM } from './imageQuality';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Create an ImageData-compatible object for testing (no DOM required). */
+/** ImageData-compatible object for tests without a DOM. */
 function createImageData(
   width: number,
   height: number,
@@ -27,7 +23,7 @@ function createImageData(
   return { data, width, height, colorSpace: 'srgb' as PredefinedColorSpace };
 }
 
-/** Create an ImageData with per-pixel control. */
+/** ImageData-compatible object with per-pixel control. */
 function createImageDataFromPixels(
   width: number,
   height: number,

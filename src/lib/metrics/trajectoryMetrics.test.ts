@@ -1,13 +1,5 @@
 /**
- * Comprehensive tests for trajectory metric computation and data integrity.
- *
- * Verifies that:
- * - Inter-frame SSIM computation is correct for known frame sequences
- * - Per-frame metrics handle reference/test pairs accurately
- * - buildTrajectoryMetricsResult aggregates correctly
- * - Data integrity: frames captured = frames processed
- * - Edge cases: single frame, max frames, uniform sequences
- * - Determinism: same input produces same output
+ * Known-input checks for trajectory metric computation and aggregation.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -34,7 +26,7 @@ function createImageData(
   return { data, width, height, colorSpace: 'srgb' as PredefinedColorSpace };
 }
 
-/** Generate a sequence of frames with controlled variation. */
+/** Sequence of frames with controlled brightness variation. */
 function generateFrameSequence(
   count: number,
   width: number,

@@ -1,7 +1,4 @@
 /**
- * Tests for the Test Registry.
- *
- * Verifies that tests are registered, discovered, and sorted correctly.
  * The UI renders tests as a flat numbered list (no category headers),
  * so the registry's getTests() must return all tests in a single flat array.
  */
