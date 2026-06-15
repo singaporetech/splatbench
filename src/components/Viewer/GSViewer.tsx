@@ -16,8 +16,18 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
   const contextRef = useRef<SparkViewerContext | null>(null);
   const frameIdRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
+  const onFrameUpdateRef = useRef(onFrameUpdate);
+  const onViewerReadyRef = useRef(onViewerReady);
 
   const { splatMesh, loading, error, loadProgress, loadFile, cleanup } = useGSLoader();
+
+  useEffect(() => {
+    onFrameUpdateRef.current = onFrameUpdate;
+  }, [onFrameUpdate]);
+
+  useEffect(() => {
+    onViewerReadyRef.current = onViewerReady;
+  }, [onViewerReady]);
 
   useEffect(() => {
     if (!gsFile || !containerRef.current) return;
@@ -115,16 +125,14 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
 
     console.log('SplatMesh added to scene');
 
-    if (onViewerReady) {
-      onViewerReady(context);
-    }
+    onViewerReadyRef.current?.(context);
 
     return () => {
       if (context.scene && splatMesh) {
         context.scene.remove(splatMesh);
       }
     };
-  }, [splatMesh, onViewerReady]);
+  }, [splatMesh]);
 
   useEffect(() => {
     if (!contextRef.current || !splatMesh) return;
@@ -140,9 +148,7 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
 
       context.renderer.render(context.scene, context.camera);
 
-      if (onFrameUpdate) {
-        onFrameUpdate(frameInterval);
-      }
+      onFrameUpdateRef.current?.(frameInterval);
 
       lastFrameTimeRef.current = currentTime;
       frameIdRef.current = requestAnimationFrame(animate);
@@ -156,7 +162,7 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
         frameIdRef.current = null;
       }
     };
-  }, [splatMesh, onFrameUpdate]);
+  }, [splatMesh]);
 
   return (
     <div
