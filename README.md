@@ -416,6 +416,31 @@ This is part of an academic research project. Contributions are welcome, especia
 
 ---
 
+## How This Was Built
+
+This work was created with AI agents but intimately shepherded by humans.
+
+---
+
+## Citation
+
+SplatBench was accepted to SIGGRAPH Asia 2026 Technical Communications. If you
+use it in your research, please cite:
+
+```bibtex
+@inproceedings{singhania2026splatbench,
+  author    = {Adi Singhania and Leon Foo and Chen Kan and Chek Tien Tan},
+  title     = {SplatBench: Benchmarking Interaction with Gaussian Splatting on the Web},
+  booktitle = {SIGGRAPH Asia 2026 Technical Communications},
+  year      = {2026},
+  publisher = {ACM},
+  address   = {Kuala Lumpur, Malaysia},
+  note      = {DOI pending}
+}
+```
+
+---
+
 ## License
 
 MIT License - See [LICENSE](./LICENSE) for details.
