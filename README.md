@@ -1,14 +1,14 @@
 # SplatBench
 
-> **Paper Submission Supplement.** This archive accompanies the paper
-> submission and contains the full SplatBench source. No splat assets are
-> included; see [Benchmark Models](#benchmark-models) for download links to
+> **Open-source release.** This repository contains the full SplatBench
+> source accompanying our SIGGRAPH Asia 2026 Technical Communications paper
+> (see [Citation](#citation)). No splat assets are included; see [Benchmark Models](#benchmark-models) for download links to
 > the standard datasets used in the paper. Quick start: `npm install &&
 > npm test && npm run dev` (see [Quick Start](#quick-start) and [Testing](#testing)).
 
 SplatBench evaluates 3D Gaussian Splatting (3DGS) web deployment formats — `.ply`, `.splat`, `.ksplat`, `.spz` — under reproducible browser conditions. It pairs side-by-side reference and test viewers with synchronized cameras, image-quality metrics (PSNR, SSIM), and runtime measurements (load time, frame rate, frame-time variance) so the same protocol can be used for interactive inspection and unattended batch runs.
 
-Part of the **SIGGRAPH Asia 2026** submission on web-based 3DGS deployment.
+Accompanies the paper *SplatBench: Benchmarking Interaction with Gaussian Splatting on the Web*, accepted to **SIGGRAPH Asia 2026 Technical Communications**.
 
 ---
 
@@ -88,7 +88,7 @@ The fastest way to get started is to download the **official pre-trained models*
 Each scene folder contains `point_cloud/iteration_7000/` and `point_cloud/iteration_30000/` subdirectories. Use the `iteration_30000` PLY files for best quality.
 
 > **Note:** Splat assets (including `bonsai.ply`) are not bundled with this
-> archive due to file size. See the accompanying paper for the file sizes,
+> repository due to file size. See the accompanying paper for the file sizes,
 > splat counts, and per-format figures measured in this study.
 
 ### Source Datasets (Training Data)
@@ -370,7 +370,7 @@ Tests use [Vitest](https://vitest.dev/) and run entirely in Node (no browser req
 
 ### Test Files
 
-This package does **not** ship with splat assets. To run the manual checklist
+This repository does **not** ship with splat assets. To run the manual checklist
 above, place the four bonsai variants under `public/` (or load them via the
 in-app drag-and-drop). See [Benchmark Models](#benchmark-models) for download
 and conversion instructions:
@@ -476,7 +476,9 @@ MIT License - See [LICENSE](./LICENSE) for details.
 
 ## Support
 
-This package accompanies the paper submission. For methodology details, see
-the accompanying paper PDF. For questions or academic collaboration after
-review, contact information will be provided in the camera-ready version.
+For methodology details, see the paper (see [Citation](#citation)). For bugs,
+questions, or feature requests, please open a
+[GitHub issue](https://github.com/singaporetech/splatbench/issues). For
+academic collaboration, contact the authors at the Singapore Institute of
+Technology.
 
