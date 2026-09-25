@@ -6,7 +6,7 @@
 > the standard benchmark datasets. Quick start: `npm install &&
 > npm test && npm run dev` (see [Quick Start](#quick-start) and [Testing](#testing)).
 
-SplatBench evaluates 3D Gaussian Splatting (3DGS) web deployment formats — `.ply`, `.splat`, `.ksplat`, `.spz` — under reproducible browser conditions. It pairs side-by-side reference and test viewers with synchronized cameras, image-quality metrics (PSNR, SSIM), and runtime measurements (load time, frame rate, frame-time variance) so the same protocol can be used for interactive inspection and unattended batch runs.
+SplatBench evaluates 3D Gaussian Splatting (3DGS) web deployment formats — `.ply`, `.splat`, `.ksplat`, `.spz`, `.sog` — under reproducible browser conditions. It pairs side-by-side reference and test viewers with synchronized cameras, image-quality metrics (PSNR, whole-image and windowed SSIM), and runtime measurements (initialization time, frame rate, frame-time variance) so the same protocol can be used for interactive inspection and unattended batch runs.
 
 Accompanies the paper *SplatBench: Benchmarking Interaction with Gaussian Splatting on the Web*, accepted to **SIGGRAPH Asia 2026 Technical Communications**.
 
@@ -20,20 +20,23 @@ Accompanies the paper *SplatBench: Benchmarking Interaction with Gaussian Splatt
 - Three.js + Spark renderer.
 
 ### Metrics
-- **Image quality:** PSNR and SSIM, computed on demand when both viewers have a model loaded.
-- **Runtime:** frame rate, frame time, load time (selection-to-first-render), and JS-heap memory (Chrome only).
+- **Image quality:** PSNR, whole-image SSIM, and 11×11 Gaussian-windowed SSIM, computed on demand when both viewers have a model loaded.
+- **Runtime:** frame rate, frame time, initialization time (from before the file bytes are read until the renderer reports the mesh initialized, with the file read, mesh initialization, and time to first frame also recorded separately), and JS-heap memory (Chrome only).
 - **File:** byte size, splat count, and detected format.
 
 ### Interaction
 - Orbit / pan / zoom controls (mouse or trackpad).
 - Camera-distance readout with the close / medium / far protocol presets used for evaluation.
 - Drag-and-drop file loading.
+- Custom viewpoints: save the current camera pose, then export and re-import the list as JSON.
+- Camera paths: record one by hand, load one from JSON, or generate a seeded random one (see [Camera Paths and Viewpoints](#camera-paths-and-viewpoints)).
 
 ### Supported formats
 - `.ply` — uncompressed baseline
 - `.splat` — standard splat
 - `.ksplat` — K-splat compressed
 - `.spz` — Niantic SPZ compressed
+- `.sog` — PlayCanvas SOG bundle (quantized attributes stored as WebP images)
 
 Measured file sizes, quality, and runtime cost are scene- and
 configuration-dependent, so measure them on your own content.
@@ -60,14 +63,9 @@ perceptually, or when one scene is driving a headline result.
 
 ### Batch Mode (Automated)
 
-Point the Batch Test Panel at a folder of paired files
-(`ref_<name>.<ext>` / `test_<name>.<ext>`). When pair names follow the
-`<scene>-<format>` naming pattern, the runner expands each pair into the
-full benchmark matrix — five standardized viewpoints × three replicates ×
-all registered tests (orbit / dolly / pan trajectories plus static
-quality) — and runs them unattended; results stream into a benchmark CSV
-export. The same protocol can therefore be re-run, audited, or extended
-to new scenes and formats without modifying the evaluation contract.
+Point the Batch Test Panel at a folder of paired files (`ref_<name>.<ext>` / `test_<name>.<ext>`). When pair names follow the `<scene>-<format>` naming pattern (for example `bonsai-sog` or `drjohnson-spz`), the runner expands each pair into the full benchmark matrix of five standardized viewpoints × three replicates × all batch tests (orbit, dolly, and pan trajectories plus static quality) and runs them unattended; results stream into a benchmark CSV export. The same protocol can therefore be re-run, audited, or extended to new scenes and formats without modifying the evaluation contract.
+
+Any lowercase scene name works. Six scenes have a pinned camera radius (bonsai, flower or flowers, garden, playroom, train, truck), so their camera distances never change. For any other scene the radius is measured once per pair from the reference asset, before the first viewpoint is applied, so a lossy test format cannot move the camera and every format of a scene is judged from the same poses. An opt-in [seeded sweep](#seeded-sweep-in-batch-mode) adds seeded trajectory runs on top of the matrix.
 
 ---
 
@@ -84,6 +82,8 @@ The fastest way to get started is to download the **official pre-trained models*
 | **Pre-trained Models** | [models.zip (14 GB)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/datasets/pretrained/models.zip) | 14 GB | All 13 scenes as `.ply` files (point_cloud/iteration_30000/point_cloud.ply) |
 
 Each scene folder contains `point_cloud/iteration_7000/` and `point_cloud/iteration_30000/` subdirectories. Use the `iteration_30000` PLY files for best quality.
+
+All thirteen scenes can be benchmarked: `bicycle`, `bonsai`, `counter`, `flowers`, `garden`, `kitchen`, `room`, `stump`, and `treehill` (Mip-NeRF 360), `train` and `truck` (Tanks and Temples), and `drjohnson` and `playroom` (Deep Blending). Name batch pairs after the scene folder, for example `ref_stump-sog.ply` and `test_stump-sog.sog`.
 
 > **Note:** Splat assets (including `bonsai.ply`) are not bundled with this
 > repository due to file size.
@@ -116,7 +116,7 @@ Indoor scenes with complex lighting and reflections. The 3DGS authors' archive p
 - **Original dataset:** [Deep Blending datasets page](https://www-sop.inria.fr/reves/publis/2018/HPPFDB18/datasets.html)
 - **Format:** Source images + COLMAP reconstruction
 
-### Getting .splat, .ksplat, and .spz Files
+### Getting .splat, .ksplat, .spz, and .sog Files
 
 The pre-trained models provide `.ply` files. To benchmark other formats in SplatBench, you need to convert them:
 
@@ -132,6 +132,7 @@ The pre-trained models provide `.ply` files. To benchmark other formats in Splat
   npm install -g @playcanvas/splat-transform
   splat-transform input.ply output.splat
   splat-transform input.ply output.ksplat
+  splat-transform input.ply output.sog
   ```
 
 - **[Niantic SPZ tools](https://github.com/nianticlabs/spz)**: Official encoder/decoder for the SPZ compressed format.
@@ -142,7 +143,7 @@ The pre-trained models provide `.ply` files. To benchmark other formats in Splat
 
 #### Format Trade-offs After Conversion
 
-`.ply` is the uncompressed baseline; `.splat`, `.ksplat`, and `.spz` are
+`.ply` is the uncompressed baseline; `.splat`, `.ksplat`, `.spz`, and `.sog` are
 compressed alternatives that trade off file size, fidelity, and runtime
 cost in different ways. The trade-offs depend on the scene, the trained
 Gaussian count, and the converter settings, so we do not quote canonical
@@ -193,11 +194,81 @@ results are directly comparable across sessions, machines, and users.
 2. **Measurement:** camera-synchronised viewers; PSNR and SSIM computed
    per frame against the reference; frame-rate and frame-time statistics
    accumulated over rolling windows.
+   - PSNR is `10·log10(255² / MSE)` over 8-bit RGB. SSIM uses BT.601 luma: `ssim` is whole-image SSIM (one window spanning the frame), and `ssim_windowed` uses an 11×11 Gaussian window (σ = 1.5, stride 1, population covariance), checked against scikit-image by `scripts/ssim_reference_fixtures.py`. Both compare the test asset with the reference PLY rendered through the same viewer, so they measure conversion loss, not reconstruction accuracy.
+   - Trajectories sample 60 keyframes at `t = i / 59`. Orbit sweeps a 90° arc at 15° elevation linearly; dolly and pan ease with `(1 − cos(πt)) / 2`. Per-frame PSNR and SSIM are averaged over the path, and the per-frame minima are exported alongside the means. Inter-frame SSIM compares consecutive frames of the asset under test.
+   - Initialization time starts before the file bytes are read and stops when the renderer reports the mesh initialized. It excludes scene insertion, shader compilation, the first sort and render, and network transfer, and it is recorded on the `front` viewpoint rows because each pair is loaded once.
 
 3. **Export:** every measurement is timestamped and tagged with the
    browser, GPU, scene, format, viewpoint, and replicate index, and is
    written to a benchmark CSV with a fixed column order, so runs from
    different sessions and machines can be combined and analysed together.
+   See [Export Schema](#export-schema) for the columns.
+
+---
+
+## Export Schema
+
+**Download Benchmark CSV** in the Batch panel writes one row per scene, format, viewpoint, replicate, and test. The schema is versioned and every row records its `export_schema_version`. Columns are only ever appended, so each version is the previous one plus trailing columns, and older files keep matching the leading columns of newer ones.
+
+| Version | Columns | Adds |
+|---------|---------|------|
+| 1.0 | 41 | Timestamp, test and replicate, scene and formats, file sizes and compression ratio, viewpoint, camera distance, tier and position, PSNR and whole-image SSIM, per-viewer FPS, frame time, memory, load time, 1%-low FPS and frame-time variance, browser, GPU, WebGL, OS, screen, device pixel ratio, splat counts, canvas size |
+| 2.0 | 55 | `app_version`, `renderer_lib_versions` (installed Spark and Three.js), `export_schema_version`; `interframe_ssim_mean`, `interframe_ssim_std`, `interframe_ssim_min`, `psnr_min_db`, `ssim_min` on trajectory rows; `load_read_ms`, `load_init_ms`, `load_first_frame_ms` for reference and test on `front` rows |
+| 2.1 | 57 | `ssim_windowed`, `ssim_windowed_min` |
+| 2.2 | 59 | `trajectory_source` (`preset`, `seeded`, or `custom`, blank on static rows) and `trajectory_seed` (seeded rows only) |
+
+Each row carries its own provenance: timestamp, browser name, version and engine, GPU renderer, WebGL version, OS platform, screen resolution, device pixel ratio, canvas size, camera position, scene and asset variant, reference and test file sizes, and the app and renderer library versions, so files from different sessions and machines can be concatenated and still be told apart.
+
+---
+
+## Camera Paths and Viewpoints
+
+Beyond the orbit, dolly, and pan presets, the runner accepts any camera path given as a list of keyframes. Seeded, JSON, and recorded paths run from the **Single Pair** tab under **Trajectory options**, alongside the registered tests; seeded paths can also run in batch mode through the opt-in sweep.
+
+### Seeded random paths
+
+The **Seeded Random Trajectory** test draws six waypoints from a `mulberry32` PRNG and passes a centripetal Catmull-Rom curve through them: 60 keyframes, each looking at the scene center, with the radius held between 0.6× and 1.4× of the start distance. Each waypoint consumes three draws in a fixed order (azimuth, elevation between −15° and 45°, distance factor), so the same seed and app version always give the same path on any machine. The **Seed** input appears while the test is selected (default 42), and sweep rows record their seed in `trajectory_seed`.
+
+### Custom paths from JSON
+
+**Custom path (JSON)…** loads a file of camera positions and look-at targets and replays it verbatim, one keyframe per frame:
+
+```json
+{
+  "name": "my-path",
+  "frames": [
+    { "position": [0, 1, 5], "target": [0, 0, 0] },
+    { "position": [3, 1, 4], "target": [0, 0, 0] },
+    { "position": [5, 1, 0] }
+  ]
+}
+```
+
+`name` must be a non-empty string, `frames` holds 2 to 600 entries, `position` is three finite numbers, and `target` defaults to `[0, 0, 0]`. Errors name the first offending frame, for example `Frame 1: "position" must have exactly 3 numbers, got 2`. The loaded path runs as `Custom Trajectory: <name>`.
+
+### Recorded paths
+
+**Record path** samples the reference viewer's camera position and target at about 15 Hz (every fourth frame) while you move the camera by hand, drops repeated poses, and stops at 600 frames. **Stop recording** saves `recorded-path.json` in the same format and loads that saved file back as the custom path, so the path that runs is exactly the file on disk.
+
+### Custom viewpoints
+
+The **Custom** section of each viewer's viewpoint panel saves the current camera pose as `Custom 1`, `Custom 2`, and so on. Saved viewpoints apply like the five standard ones and can be removed individually. **Export** writes `<scene>-viewpoints.json`, and **Import…** appends the viewpoints from a file:
+
+```json
+{
+  "name": "garden",
+  "viewpoints": [
+    { "name": "Custom 1", "position": [1.5, 0, 3], "target": [0, 0, 0], "fov": 50 },
+    { "name": "Custom 2", "position": [-4, 0, 0] }
+  ]
+}
+```
+
+A file holds 1 to 50 viewpoints; `target` defaults to the origin and `fov`, if given, must be between 0 and 180 degrees. Saved viewpoints last for the session unless exported.
+
+### Seeded sweep in batch mode
+
+Neither the seeded nor the custom test is part of the benchmark matrix. To measure path variation in a batch, tick **Seeded trajectory sweep** in the Batch panel and enter 1 to 10 distinct seeds (default `42, 1337, 2026`). After a pair's matrix finishes, the seeded test runs once per seed at the pair's `front` viewpoint, labelled replicate 1, and each run adds one CSV row with `trajectory_source=seeded` and its seed. With the box unticked, which is the default, a batch runs exactly the matrix.
 
 ---
 
@@ -236,8 +307,10 @@ Registry (discovers tests) --> useTestRunner (manages execution) --> TestPanel (
 | `trajectory-dolly` | Trajectory | Temporal consistency during zoom in/out |
 | `trajectory-pan` | Trajectory | Temporal consistency during lateral camera pan |
 | `static-quality` | Quality | PSNR/SSIM at current camera position (requires reference viewer) |
+| `trajectory-seeded` | Trajectory | Temporal consistency along a seeded random path (Single Pair panel, or the opt-in batch sweep) |
+| `trajectory-custom` | Trajectory | Temporal consistency along a recorded or JSON-loaded path (Single Pair panel only, not registered) |
 
-All trajectory tests compute inter-frame SSIM (mean, std dev, min) and optionally per-frame PSNR/SSIM against a reference viewer.
+All trajectory tests compute inter-frame SSIM (mean, std dev, min) on the asset under test and, with a reference viewer, per-frame PSNR, whole-image SSIM, and windowed SSIM (mean and minimum). Batch runs iterate `getBatchTests()`, which excludes the seeded test, so the benchmark matrix runs only the orbit, dolly, pan, and static-quality tests.
 
 ### Adding a New Test
 
@@ -305,7 +378,7 @@ export { myTest } from './myNewTest';
 - **Build Tool**: Vite 7.3
 - **3D Rendering**: Three.js 0.182 + **[@sparkjsdev/spark](https://github.com/sparkjsdev/spark)**
 - **Styling**: Tailwind CSS v4
-- **Quality Metrics**: Custom PSNR/SSIM implementation
+- **Quality Metrics**: Custom PSNR and SSIM (whole-image and 11×11 Gaussian-windowed) implementation
 - **Deployment**: GitHub Pages (optional)
 
 ---
@@ -328,7 +401,11 @@ Tests use [Vitest](https://vitest.dev/) and run entirely in Node (no browser req
 |----------|------|----------------|
 | **Image Quality** | `src/lib/metrics/imageQuality.test.ts` | PSNR accuracy, SSIM correctness, edge cases (identical, black/white, gradient images), metric symmetry, monotonic degradation |
 | **Trajectory Metrics** | `src/lib/metrics/trajectoryMetrics.test.ts` | Inter-frame SSIM computation, per-frame metric aggregation, `buildTrajectoryMetricsResult` pipeline, data integrity (frames captured = frames processed), determinism |
-| **Camera Trajectories** | `src/lib/camera/trajectories.test.ts` | Orbit/dolly/pan keyframe generation, geometric correctness (constant distance, 360-degree return), t-value monotonicity, dispatcher routing, MetricsCollector FPS/frame-time/percentile accuracy |
+| **Camera Trajectories** | `src/lib/camera/trajectories.test.ts` | Orbit/dolly/pan keyframe generation, geometric correctness (constant distance, 360-degree return), t-value monotonicity, dispatcher routing, MetricsCollector FPS/frame-time/percentile accuracy, seeded path determinism, custom path parsing, path recording |
+| **Windowed SSIM** | `src/lib/metrics/imageQuality.test.ts` | Agreement with scikit-image on fixed fixtures (regenerate with `uv run --with scikit-image --with numpy python3 scripts/ssim_reference_fixtures.py`), symmetry, stride handling |
+| **Benchmark Export** | `src/lib/export/benchmarkCsvExport.test.ts` | Column order and schema version, provenance, stability, load-phase, windowed-SSIM, and trajectory columns, scene and format inference |
+| **Batch Runner** | `src/hooks/useBatchTestRunner.test.ts` | Pair-name parsing for all formats and scenes, viewpoint matrix, scene radius measurement, seeded sweep |
+| **Camera Presets** | `src/lib/camera/cameraPresets.test.ts` | Pinned camera distances, radius estimation, viewpoint file export and import |
 
 ### Adding New Tests
 
@@ -348,7 +425,7 @@ Tests use [Vitest](https://vitest.dev/) and run entirely in Node (no browser req
    - [ ] Load .ply file into reference model (left pane)
    - [ ] Load .splat file into test model (right pane)
    - [ ] Verify splat counts match between the two formats for the same scene
-   - [ ] Test .ksplat and .spz formats
+   - [ ] Test .ksplat, .spz, and .sog formats
 
 2. **Rendering**
    - [ ] Confirm both viewers render without stutter or visible artefacts
@@ -367,13 +444,14 @@ Tests use [Vitest](https://vitest.dev/) and run entirely in Node (no browser req
 ### Test Files
 
 This repository does **not** ship with splat assets. To run the manual checklist
-above, place the four bonsai variants under `public/` (or load them via the
+above, place the bonsai variants under `public/` (or load them via the
 in-app drag-and-drop). See [Benchmark Models](#benchmark-models) for download
 and conversion instructions:
 - `bonsai.ply` — Original PLY format (download from the 3DGS authors)
 - `bonsai.splat` — Standard splat (convert with `splat-transform`)
 - `bonsai.ksplat` — K-splat compressed (convert with `splat-transform`)
 - `bonsai.spz` — Niantic SPZ (convert with the SPZ encoder)
+- `bonsai.sog` — PlayCanvas SOG (convert with `splat-transform`)
 
 ---
 
