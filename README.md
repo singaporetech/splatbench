@@ -1,9 +1,9 @@
 # SplatBench
 
 > **Open-source release.** This repository contains the full SplatBench
-> source accompanying our SIGGRAPH Asia 2026 Technical Communications paper
-> (see [Citation](#citation)). No splat assets are included; see [Benchmark Models](#benchmark-models) for download links to
-> the standard datasets used in the paper. Quick start: `npm install &&
+> source (see [Citation](#citation) to cite it). No splat assets are
+> included; see [Benchmark Models](#benchmark-models) for download links to
+> the standard benchmark datasets. Quick start: `npm install &&
 > npm test && npm run dev` (see [Quick Start](#quick-start) and [Testing](#testing)).
 
 SplatBench evaluates 3D Gaussian Splatting (3DGS) web deployment formats — `.ply`, `.splat`, `.ksplat`, `.spz` — under reproducible browser conditions. It pairs side-by-side reference and test viewers with synchronized cameras, image-quality metrics (PSNR, SSIM), and runtime measurements (load time, frame rate, frame-time variance) so the same protocol can be used for interactive inspection and unattended batch runs.
@@ -36,8 +36,7 @@ Accompanies the paper *SplatBench: Benchmarking Interaction with Gaussian Splatt
 - `.spz` — Niantic SPZ compressed
 
 Measured file sizes, quality, and runtime cost are scene- and
-configuration-dependent; see the accompanying paper for the values reported
-in this study.
+configuration-dependent, so measure them on your own content.
 
 ---
 
@@ -63,13 +62,12 @@ perceptually, or when one scene is driving a headline result.
 
 Point the Batch Test Panel at a folder of paired files
 (`ref_<name>.<ext>` / `test_<name>.<ext>`). When pair names follow the
-`<scene>-<format>` paper pattern, the runner expands each pair into the
-full paper matrix — five standardized viewpoints × three replicates ×
+`<scene>-<format>` naming pattern, the runner expands each pair into the
+full benchmark matrix — five standardized viewpoints × three replicates ×
 all registered tests (orbit / dolly / pan trajectories plus static
-quality) — and runs them unattended; results stream into a paper-CSV
-export. The protocol that produced the paper's tables can therefore be
-re-run, audited, or extended to new scenes and formats without modifying
-the evaluation contract.
+quality) — and runs them unattended; results stream into a benchmark CSV
+export. The same protocol can therefore be re-run, audited, or extended
+to new scenes and formats without modifying the evaluation contract.
 
 ---
 
@@ -88,8 +86,7 @@ The fastest way to get started is to download the **official pre-trained models*
 Each scene folder contains `point_cloud/iteration_7000/` and `point_cloud/iteration_30000/` subdirectories. Use the `iteration_30000` PLY files for best quality.
 
 > **Note:** Splat assets (including `bonsai.ply`) are not bundled with this
-> repository due to file size. See the accompanying paper for the file sizes,
-> splat counts, and per-format figures measured in this study.
+> repository due to file size.
 
 ### Source Datasets (Training Data)
 
@@ -149,8 +146,7 @@ The pre-trained models provide `.ply` files. To benchmark other formats in Splat
 compressed alternatives that trade off file size, fidelity, and runtime
 cost in different ways. The trade-offs depend on the scene, the trained
 Gaussian count, and the converter settings, so we do not quote canonical
-numbers here — see the accompanying paper for the values measured in this
-study, and re-measure on your own content for any deployment decision.
+numbers here. Measure on your own content for any deployment decision.
 
 ### Pre-converted .splat Files
 
@@ -185,7 +181,7 @@ npm run preview  # Preview production build
 ## Evaluation Protocol
 
 The protocol used by both interactive and batch runs is fixed so that
-results are directly comparable across sessions, machines, and reviewers.
+results are directly comparable across sessions, machines, and users.
 
 1. **Camera distances** (radius-relative, with a colour-coded readout in
    the UI):
@@ -200,8 +196,8 @@ results are directly comparable across sessions, machines, and reviewers.
 
 3. **Export:** every measurement is timestamped and tagged with the
    browser, GPU, scene, format, viewpoint, and replicate index, and is
-   written to a paper-CSV that maps directly onto the tables and figures
-   in the accompanying paper.
+   written to a benchmark CSV with a fixed column order, so runs from
+   different sessions and machines can be combined and analysed together.
 
 ---
 
