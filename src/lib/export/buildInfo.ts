@@ -14,5 +14,6 @@ export const RENDERER_LIB_VERSIONS: string =
  * 1.0: the original 41 columns (never written to the file)
  * 2.0: provenance, temporal stability, per-frame minima, and load phases
  * 2.1: 11x11 Gaussian-windowed SSIM (ssim_windowed, ssim_windowed_min)
+ * 2.2: trajectory provenance (trajectory_source, trajectory_seed)
  */
-export const EXPORT_SCHEMA_VERSION = '2.1';
+export const EXPORT_SCHEMA_VERSION = '2.2';

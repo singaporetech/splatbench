@@ -26,7 +26,14 @@ vi.mock('../metrics/trajectoryMetrics', async (importOriginal) => {
   };
 });
 
-const { orbitTest } = await import('./trajectoryTests');
+const { orbitTest, seededRandomTest, makeCustomTrajectoryTest } = await import(
+  './trajectoryTests',
+);
+const { getTests, getBatchTests, SINGLE_SCENE_ONLY_TEST_IDS } = await import('./registry');
+const { getSeed, setSeed, resetSeed, DEFAULT_TRAJECTORY_SEED } = await import(
+  './trajectorySettings',
+);
+const { parseCustomTrajectoryJSON } = await import('../camera/trajectories');
 
 function createImageData(width: number, height: number, value: number): ImageData {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -141,5 +148,124 @@ describe('trajectory tests measure temporal stability on the asset under test', 
     expect(result.metrics.interFrameSSIMMean).toBeLessThan(0.9);
     expect(result.metrics.psnrMean).toBeUndefined();
     expect(result.metrics.ssimMean).toBeUndefined();
+  });
+});
+
+// ─── Registration and Ad-Hoc Tests ───────────────────────────────────────────
+
+/** Installs the frame stubs runTrajectoryTest needs outside a real browser. */
+function useFrameStubs(): void {
+  beforeEach(() => {
+    frameSequences.clear();
+    captureCursors.clear();
+    globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      return setTimeout(() => callback(0), 0) as unknown as number;
+    }) as typeof globalThis.requestAnimationFrame;
+  });
+
+  afterEach(() => {
+    delete (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame;
+  });
+}
+
+describe('trajectory test registration', () => {
+  it('registers the seeded trajectory test', () => {
+    const seeded = getTests().find((t) => t.id === 'trajectory-seeded');
+    expect(seeded).toBeDefined();
+    expect(seeded!.category).toBe('Trajectory');
+    expect(seeded!.name).toBe('Seeded Random Trajectory');
+  });
+
+  it('keeps the seeded test out of batch runs', () => {
+    expect(SINGLE_SCENE_ONLY_TEST_IDS).toContain('trajectory-seeded');
+    expect(getBatchTests().map((t) => t.id)).not.toContain('trajectory-seeded');
+  });
+
+  it('leaves the preset trajectory tests in batch runs', () => {
+    const batchIds = getBatchTests().map((t) => t.id);
+    expect(batchIds).toContain('trajectory-orbit');
+    expect(batchIds).toContain('trajectory-dolly');
+    expect(batchIds).toContain('trajectory-pan');
+  });
+
+  it('never registers the custom trajectory test', () => {
+    expect(getTests().map((t) => t.id)).not.toContain('trajectory-custom');
+  });
+});
+
+describe('makeCustomTrajectoryTest', () => {
+  useFrameStubs();
+
+  const config = parseCustomTrajectoryJSON(
+    JSON.stringify({
+      name: 'my-path',
+      frames: [{ position: [0, 0, 3] }, { position: [3, 0, 0] }],
+    }),
+  );
+
+  it('produces a runnable Test shape', () => {
+    const test = makeCustomTrajectoryTest(config);
+
+    expect(test.id).toBe('trajectory-custom');
+    expect(test.category).toBe('Trajectory');
+    expect(typeof test.run).toBe('function');
+    expect(test.description.length).toBeGreaterThan(0);
+  });
+
+  it('names the test after the path', () => {
+    expect(makeCustomTrajectoryTest(config).name).toBe('Custom Trajectory: my-path');
+  });
+
+  it('runs and reports its own test ID', async () => {
+    const result = await makeCustomTrajectoryTest(config).run(
+      { primary: stubContext(stableSequence()), reference: null },
+      noopProgress,
+      new AbortController().signal,
+    );
+
+    expect(result.testId).toBe('trajectory-custom');
+    expect(result.metrics.totalFrames).toBe(2);
+    // only seeded runs carry a seed into the export
+    expect(result.metrics.trajectorySeed).toBeUndefined();
+  });
+});
+
+describe('seeded trajectory settings', () => {
+  useFrameStubs();
+
+  beforeEach(() => {
+    resetSeed();
+  });
+
+  afterEach(() => {
+    resetSeed();
+  });
+
+  it('defaults to seed 42', () => {
+    expect(getSeed()).toBe(DEFAULT_TRAJECTORY_SEED);
+    expect(getSeed()).toBe(42);
+  });
+
+  it('round-trips a set seed', () => {
+    setSeed(1337);
+    expect(getSeed()).toBe(1337);
+  });
+
+  it('falls back to the default for non-finite input', () => {
+    setSeed(Number.NaN);
+    expect(getSeed()).toBe(DEFAULT_TRAJECTORY_SEED);
+  });
+
+  it('carries the current seed into the run metrics', async () => {
+    setSeed(2024);
+
+    const result = await seededRandomTest.run(
+      { primary: stubContext(stableSequence()), reference: null },
+      noopProgress,
+      new AbortController().signal,
+    );
+
+    expect(result.testId).toBe('trajectory-seeded');
+    expect(result.metrics.trajectorySeed).toBe(2024);
   });
 });

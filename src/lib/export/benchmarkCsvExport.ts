@@ -75,6 +75,9 @@ export const BENCHMARK_CSV_HEADERS = [
   // schema 2.1: windowed SSIM; ssim and ssim_min above stay whole-image
   'ssim_windowed',
   'ssim_windowed_min',
+  // schema 2.2: trajectory provenance, blank on non-trajectory rows
+  'trajectory_source',
+  'trajectory_seed',
 ] as const;
 
 type BenchmarkCsvHeader = (typeof BENCHMARK_CSV_HEADERS)[number];
@@ -230,6 +233,14 @@ function metricValue(result: TestResult, keys: string[]): number | null {
     if (Number.isFinite(value)) return value;
   }
   return null;
+}
+
+// derived from the test id, the only trajectory identity that reaches the exporter
+function trajectorySource(testId: string): string {
+  if (!testId.startsWith('trajectory-')) return '';
+  if (testId === 'trajectory-seeded') return 'seeded';
+  if (testId === 'trajectory-custom') return 'custom';
+  return 'preset';
 }
 
 function csvCell(value: string): string {
@@ -418,6 +429,8 @@ function createBenchmarkCsvRow(
     load_first_frame_ms_test: isFront ? loadPhaseCell(metrics?.test.loadFirstFrameMs) : '',
     ssim_windowed: formatNumber(metricValue(input.result, ['ssimWindowed', 'ssimWindowedMean']), 4),
     ssim_windowed_min: formatNumber(metricValue(input.result, ['ssimWindowedMin']), 4),
+    trajectory_source: trajectorySource(input.result.testId),
+    trajectory_seed: formatInteger(metricValue(input.result, ['trajectorySeed'])),
   };
 }
 

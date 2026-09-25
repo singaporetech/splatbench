@@ -1,15 +1,20 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { BenchmarkMetrics, SparkViewerContext } from '../../types';
 import type { GSFile } from '../../types';
-import type { TestScene, TestStatus } from '../../lib/testing/types';
+import type { Test, TestScene, TestStatus } from '../../lib/testing/types';
 import { useTestRunner } from '../../hooks/useTestRunner';
 import type { TestRunState } from '../../hooks/useTestRunner';
 import { BatchTestPanel } from './BatchTestPanel';
 import { InfoTooltip } from '../UI/InfoTooltip';
+import { parseCustomTrajectoryJSON } from '../../lib/camera/trajectories';
+import { makeCustomTrajectoryTest } from '../../lib/testing/trajectoryTests';
+import { getSeed, setSeed } from '../../lib/testing/trajectorySettings';
 
 // register built-in tests through module side effects
 import '../../lib/testing/trajectoryTests';
 import '../../lib/testing/staticQualityTest';
+
+const SEEDED_TEST_ID = 'trajectory-seeded';
 
 interface TestPanelProps {
   contextA: SparkViewerContext | null;
@@ -341,7 +346,35 @@ function CurrentModelsPanel({
   contextA: SparkViewerContext | null;
   contextB: SparkViewerContext | null;
 }) {
-  const runner = useTestRunner();
+  const [customTest, setCustomTest] = useState<Test | null>(null);
+  const [customError, setCustomError] = useState<string | null>(null);
+  const [seedInput, setSeedInput] = useState(() => String(getSeed()));
+  const customFileInputRef = useRef<HTMLInputElement>(null);
+
+  const extraTests = useMemo(() => (customTest ? [customTest] : []), [customTest]);
+  const runner = useTestRunner(extraTests);
+
+  const handleSeedChange = (value: string) => {
+    setSeedInput(value);
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) setSeed(parsed);
+  };
+
+  const handleCustomPathFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const config = parseCustomTrajectoryJSON(await file.text());
+      const test = makeCustomTrajectoryTest(config);
+      setCustomTest(test);
+      runner.selectTest(test.id);
+      setCustomError(null);
+    } catch (err) {
+      setCustomTest(null);
+      setCustomError(err instanceof Error ? err.message : 'Could not read path file');
+    }
+    // allow re-picking the same file after a fix
+    if (customFileInputRef.current) customFileInputRef.current.value = '';
+  };
 
   // primary is the asset under test (Splat B) and reference the ground truth
   // (Splat A); with one viewer loaded, that viewer is the primary
@@ -514,6 +547,96 @@ function CurrentModelsPanel({
             </label>
           );
         })}
+      </div>
+
+      {/* trajectory options */}
+      <div
+        className="mb-5 px-3 py-2.5 rounded-lg"
+        style={{ backgroundColor: 'rgba(179, 157, 255, 0.06)', border: '1px solid #44444480' }}
+      >
+        <div
+          className="text-xs font-semibold uppercase tracking-wide mb-2"
+          style={{ color: '#FFACBF' }}
+        >
+          Trajectory options
+        </div>
+
+        {runner.selectedIds.has(SEEDED_TEST_ID) && (
+          <label className="flex items-center gap-2 mb-2">
+            <span className="text-xs" style={{ color: '#888' }}>
+              Seed
+            </span>
+            <input
+              type="number"
+              value={seedInput}
+              onChange={(e) => handleSeedChange(e.target.value)}
+              disabled={runner.isRunning}
+              className="text-xs font-mono px-2 py-1 rounded w-24"
+              style={{
+                backgroundColor: '#555',
+                color: '#FDFDFB',
+                border: '1px solid #44444480',
+                opacity: runner.isRunning ? 0.5 : 1,
+              }}
+            />
+            <InfoTooltip text="Same seed and same app version always produce the same camera path, so a seeded run can be reproduced exactly." />
+          </label>
+        )}
+
+        <input
+          ref={customFileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={(e) => handleCustomPathFile(e.target.files?.[0])}
+        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => customFileInputRef.current?.click()}
+            disabled={runner.isRunning}
+            className="text-xs px-2 py-1 rounded transition-colors"
+            style={{
+              backgroundColor: '#555',
+              color: '#FDFDFB',
+              cursor: runner.isRunning ? 'not-allowed' : 'pointer',
+              opacity: runner.isRunning ? 0.5 : 1,
+            }}
+          >
+            Custom path (JSON)&hellip;
+          </button>
+          {customTest && (
+            <button
+              onClick={() => {
+                setCustomTest(null);
+                setCustomError(null);
+              }}
+              disabled={runner.isRunning}
+              className="text-xs px-2 py-1 rounded transition-colors"
+              style={{
+                backgroundColor: '#555',
+                color: '#FDFDFB',
+                cursor: runner.isRunning ? 'not-allowed' : 'pointer',
+                opacity: runner.isRunning ? 0.5 : 1,
+              }}
+            >
+              Remove
+            </button>
+          )}
+          <InfoTooltip text='A JSON file shaped { "name": "my-path", "frames": [ { "position": [x,y,z], "target": [x,y,z] } ] }. It runs alongside the tests above and is never included in batch runs.' />
+        </div>
+
+        {customError && (
+          <div
+            className="mt-2 p-2 rounded-lg text-xs"
+            style={{
+              backgroundColor: 'rgba(255, 87, 95, 0.15)',
+              border: '1px solid #FF575F',
+              color: '#FF575F',
+            }}
+          >
+            {customError}
+          </div>
+        )}
       </div>
 
       {/* run and cancel buttons */}

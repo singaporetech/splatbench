@@ -4,14 +4,18 @@ import type {
   OrbitConfig,
   DollyConfig,
   PanConfig,
+  SeededConfig,
+  CustomConfig,
 } from '../../lib/camera/trajectories';
 import {
   DEFAULT_ORBIT_CONFIG,
   DEFAULT_DOLLY_CONFIG,
   DEFAULT_PAN_CONFIG,
+  DEFAULT_SEEDED_CONFIG,
   generateTrajectory,
   applyKeyframe,
 } from '../../lib/camera/trajectories';
+import { getSeed } from './trajectorySettings';
 import {
   captureFrame,
   computeInterFrameSSIM,
@@ -50,7 +54,7 @@ function gradeTemporalConsistency(stdDev: number): {
  * Core trajectory test runner shared by all three trajectory types.
  */
 async function runTrajectoryTest(
-  config: OrbitConfig | DollyConfig | PanConfig,
+  config: OrbitConfig | DollyConfig | PanConfig | SeededConfig | CustomConfig,
   scene: TestScene,
   onProgress: OnProgress,
   signal: AbortSignal,
@@ -176,6 +180,11 @@ async function runTrajectoryTest(
       totalFrames: metricsResult.totalFrames,
     };
 
+    // exported as trajectory_seed; preset and custom rows leave it blank
+    if (config.type === 'seeded') {
+      metrics.trajectorySeed = config.seed;
+    }
+
     if (metricsResult.aggregatePerFrame.psnrMean !== null) {
       metrics.psnrMean = metricsResult.aggregatePerFrame.psnrMean;
     }
@@ -299,10 +308,41 @@ const panTest: Test = {
     runTrajectoryTest(DEFAULT_PAN_CONFIG, scene, onProgress, signal),
 };
 
+// read at run time, so a seed change applies to the next run
+function currentSeededConfig(): SeededConfig {
+  return { ...DEFAULT_SEEDED_CONFIG, seed: getSeed() };
+}
+
+const seededRandomTest: Test = {
+  id: 'trajectory-seeded',
+  name: 'Seeded Random Trajectory',
+  description:
+    'Camera follows a smooth pseudo-random path through seeded waypoints. Same seed reproduces the same path exactly.',
+  category: 'Trajectory',
+  run: (scene, onProgress, signal) =>
+    runTrajectoryTest(currentSeededConfig(), scene, onProgress, signal),
+};
+
+/**
+ * One-off test for a user-supplied path. Not registered: the panel builds it
+ * from the chosen file and runs it alongside the registered tests.
+ */
+export function makeCustomTrajectoryTest(config: CustomConfig): Test {
+  return {
+    id: 'trajectory-custom',
+    name: `Custom Trajectory: ${config.name}`,
+    description: `User-supplied camera path "${config.name}" with ${config.points.length} frames.`,
+    category: 'Trajectory',
+    run: (scene, onProgress, signal) =>
+      runTrajectoryTest(config, scene, onProgress, signal),
+  };
+}
+
 // ─── Auto-Registration ───────────────────────────────────────────────────────
 
 registerTest(orbitTest);
 registerTest(dollyTest);
 registerTest(panTest);
+registerTest(seededRandomTest);
 
-export { orbitTest, dollyTest, panTest };
+export { orbitTest, dollyTest, panTest, seededRandomTest };

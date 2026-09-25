@@ -26,6 +26,7 @@ export interface UseTestRunnerReturn {
 
   // actions
   toggleTest: (id: string) => void;
+  selectTest: (id: string) => void;
   selectAll: () => void;
   deselectAll: () => void;
   runSelected: (scene: TestScene) => Promise<void>;
@@ -46,8 +47,12 @@ export interface UseTestRunnerReturn {
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
-export function useTestRunner(): UseTestRunnerReturn {
-  const tests = useMemo(() => getTests(), []);
+/**
+ * `extraTests` are ad-hoc tests outside the registry, such as a custom
+ * trajectory built from a path file. They are never visible to batch mode.
+ */
+export function useTestRunner(extraTests: Test[] = []): UseTestRunnerReturn {
+  const tests = useMemo(() => [...getTests(), ...extraTests], [extraTests]);
 
   // all tests selected by default
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -76,6 +81,11 @@ export function useTestRunner(): UseTestRunnerReturn {
       }
       return next;
     });
+  }, []);
+
+  // ad-hoc tests arrive selected, like registered tests on mount
+  const selectTest = useCallback((id: string) => {
+    setSelectedIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   }, []);
 
   const selectAll = useCallback(() => {
@@ -267,6 +277,7 @@ export function useTestRunner(): UseTestRunnerReturn {
     completedCount,
     totalInBatch,
     toggleTest,
+    selectTest,
     selectAll,
     deselectAll,
     runSelected,

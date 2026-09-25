@@ -76,7 +76,7 @@ describe('benchmarkCsvExport', () => {
     const csv = exportBenchmarkBatchResultsToCSV([], runtimeInfo);
 
     expect(csv).toBe(BENCHMARK_CSV_HEADERS.join(','));
-    expect(BENCHMARK_CSV_HEADERS).toHaveLength(57);
+    expect(BENCHMARK_CSV_HEADERS).toHaveLength(59);
   });
 
   it('keeps the original 41 columns as a stable prefix', () => {
@@ -146,12 +146,16 @@ describe('benchmarkCsvExport', () => {
     const [row] = createBenchmarkCsvRows([batchResult('trajectory-orbit')], runtimeInfo);
     expect(row.app_version.length).toBeGreaterThan(0);
     expect(row.renderer_lib_versions).toMatch(/^spark@\d+\.\d+\.\d+;three@\d+\.\d+\.\d+$/u);
-    expect(row.export_schema_version).toBe('2.1');
+    expect(row.export_schema_version).toBe('2.2');
   });
 
   it('appends the schema 2.1 windowed-SSIM columns after the 55 schema 2.0 ones', () => {
-    expect(BENCHMARK_CSV_HEADERS).toHaveLength(57);
-    expect(BENCHMARK_CSV_HEADERS.slice(55)).toEqual(['ssim_windowed', 'ssim_windowed_min']);
+    expect(BENCHMARK_CSV_HEADERS.slice(55, 57)).toEqual(['ssim_windowed', 'ssim_windowed_min']);
+  });
+
+  it('appends the schema 2.2 trajectory columns after the 57 schema 2.1 ones', () => {
+    expect(BENCHMARK_CSV_HEADERS).toHaveLength(59);
+    expect(BENCHMARK_CSV_HEADERS.slice(57)).toEqual(['trajectory_source', 'trajectory_seed']);
   });
 
   it('maps a trajectory batch result into benchmark CSV fields', () => {
@@ -327,6 +331,33 @@ describe('benchmarkCsvExport', () => {
     expect(wideRow.load_read_ms_test).toBe('');
     expect(wideRow.load_init_ms_test).toBe('');
     expect(wideRow.load_first_frame_ms_test).toBe('');
+  });
+
+  it('labels a preset trajectory row as preset with no seed', () => {
+    const [row] = createBenchmarkCsvRows([batchResult('trajectory-orbit')], runtimeInfo);
+    expect(row.trajectory_source).toBe('preset');
+    expect(row.trajectory_seed).toBe('');
+  });
+
+  it('labels a seeded trajectory row and carries its seed', () => {
+    const input = batchResult('trajectory-seeded');
+    input.results[0].metrics.trajectorySeed = 1337;
+
+    const [row] = createBenchmarkCsvRows([input], runtimeInfo);
+    expect(row.trajectory_source).toBe('seeded');
+    expect(row.trajectory_seed).toBe('1337');
+  });
+
+  it('labels a custom trajectory row as custom with no seed', () => {
+    const [row] = createBenchmarkCsvRows([batchResult('trajectory-custom')], runtimeInfo);
+    expect(row.trajectory_source).toBe('custom');
+    expect(row.trajectory_seed).toBe('');
+  });
+
+  it('leaves trajectory provenance blank on non-trajectory rows', () => {
+    const [row] = createBenchmarkCsvRows([batchResult('static-quality')], runtimeInfo);
+    expect(row.trajectory_source).toBe('');
+    expect(row.trajectory_seed).toBe('');
   });
 
   it('exports load phases as blank when not measured (collector reports 0)', () => {
