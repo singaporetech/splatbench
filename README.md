@@ -435,7 +435,7 @@ use it in your research, please cite:
   year      = {2026},
   publisher = {ACM},
   address   = {Kuala Lumpur, Malaysia},
-  note      = {DOI pending}
+  doi       = {10.1145/3829339.3847854}
 }
 ```
 
