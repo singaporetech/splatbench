@@ -64,8 +64,9 @@ async function runTrajectoryTest(
   const traj = generateTrajectory(config);
   const totalFrames = traj.keyframes.length;
 
-  const framesA: ImageData[] = [];
-  const framesB: ImageData[] = [];
+  // inter-frame SSIM is computed on the frames under test, not the reference
+  const framesUnderTest: ImageData[] = [];
+  const framesReference: ImageData[] = [];
 
   const origPos = context.camera.position.clone();
   const origTarget = context.controls.target.clone();
@@ -89,9 +90,9 @@ async function runTrajectoryTest(
 
       await waitForFrame();
 
-      framesA.push(captureFrame(context));
+      framesUnderTest.push(captureFrame(context));
       if (referenceContext) {
-        framesB.push(captureFrame(referenceContext));
+        framesReference.push(captureFrame(referenceContext));
       }
 
       const captureFraction = (i + 1) / totalFrames;
@@ -119,7 +120,7 @@ async function runTrajectoryTest(
 
     await new Promise((r) => setTimeout(r, 0));
 
-    const interFrameMetrics = computeInterFrameSSIM(framesA);
+    const interFrameMetrics = computeInterFrameSSIM(framesUnderTest);
 
     onProgress({
       fraction: 0.5,
@@ -130,9 +131,10 @@ async function runTrajectoryTest(
     await new Promise((r) => setTimeout(r, 0));
 
     const tValues = traj.keyframes.map((kf) => kf.t);
+    // computePerFrameMetrics takes (reference, test) in that order
     const perFrameMetrics =
-      framesB.length > 0
-        ? computePerFrameMetrics(framesB, framesA, tValues)
+      framesReference.length > 0
+        ? computePerFrameMetrics(framesReference, framesUnderTest, tValues)
         : tValues.map((t, idx) => ({
             frameIndex: idx,
             t,

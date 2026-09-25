@@ -163,6 +163,25 @@ describe('BatchTestPanel UI Structure', () => {
   });
 });
 
+describe('TestScene role wiring', () => {
+  const testPanelSource = readComponent('TestPanel.tsx');
+  const batchPanelSource = readComponent('BatchTestPanel.tsx');
+
+  // single-viewer metrics such as inter-frame SSIM are computed on
+  // scene.primary, so primary must be the test-format viewer
+  it('makes the test-format viewer the primary in TestPanel', () => {
+    expect(testPanelSource).toContain('{ primary: contextB, reference: contextA }');
+    expect(testPanelSource).toContain('{ primary: contextA, reference: null }');
+    expect(testPanelSource).not.toContain('reference: contextB');
+  });
+
+  it('makes the test-format viewer the primary in BatchTestPanel', () => {
+    expect(batchPanelSource).toContain('{ primary: ctxB, reference: ctxA }');
+    expect(batchPanelSource).toContain('{ primary: ctxA, reference: null }');
+    expect(batchPanelSource).not.toContain('reference: ctxB');
+  });
+});
+
 describe('Current-model progress display', () => {
   const testPanelSource = readComponent('TestPanel.tsx');
 

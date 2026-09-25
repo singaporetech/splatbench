@@ -343,8 +343,12 @@ function CurrentModelsPanel({
 }) {
   const runner = useTestRunner();
 
+  // primary is the asset under test (Splat B) and reference the ground truth
+  // (Splat A); with one viewer loaded, that viewer is the primary
   const scene: TestScene | null = contextA
-    ? { primary: contextA, reference: contextB ?? null }
+    ? contextB
+      ? { primary: contextB, reference: contextA }
+      : { primary: contextA, reference: null }
     : null;
 
   const canRun = !!scene && !runner.isRunning && runner.selectedIds.size > 0;

@@ -240,10 +240,11 @@ export function BatchTestPanel({
 
           if (!ctxA) return null;
 
-          return {
-            primary: ctxA,
-            reference: ctxB,
-          };
+          // primary is the asset under test, so single-viewer metrics such as
+          // inter-frame SSIM describe the format the row is labelled with
+          return ctxB
+            ? { primary: ctxB, reference: ctxA }
+            : { primary: ctxA, reference: null };
         },
         getReferenceMetrics && getTestMetrics
           ? (scene) => {

@@ -13,6 +13,10 @@ import type { SparkViewerContext } from '../../types';
  * Runtime context handed to every test. Wraps the primary viewer and
  * an optional reference viewer so that tests can read camera state,
  * capture frames, etc.
+ *
+ * `primary` is the asset under test, so single-viewer metrics such as
+ * inter-frame SSIM describe the format the exported row is labelled with.
+ * `reference` is the ground truth, or null when only one viewer is loaded.
  */
 export interface TestScene {
   primary: SparkViewerContext;
