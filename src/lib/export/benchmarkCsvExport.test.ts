@@ -76,7 +76,7 @@ describe('benchmarkCsvExport', () => {
     const csv = exportBenchmarkBatchResultsToCSV([], runtimeInfo);
 
     expect(csv).toBe(BENCHMARK_CSV_HEADERS.join(','));
-    expect(BENCHMARK_CSV_HEADERS).toHaveLength(55);
+    expect(BENCHMARK_CSV_HEADERS).toHaveLength(57);
   });
 
   it('keeps the original 41 columns as a stable prefix', () => {
@@ -126,7 +126,7 @@ describe('benchmarkCsvExport', () => {
   });
 
   it('appends schema 2.0 columns after the original 41 and populates provenance', () => {
-    expect(BENCHMARK_CSV_HEADERS.slice(41)).toEqual([
+    expect(BENCHMARK_CSV_HEADERS.slice(41, 55)).toEqual([
       'app_version',
       'renderer_lib_versions',
       'export_schema_version',
@@ -146,7 +146,12 @@ describe('benchmarkCsvExport', () => {
     const [row] = createBenchmarkCsvRows([batchResult('trajectory-orbit')], runtimeInfo);
     expect(row.app_version.length).toBeGreaterThan(0);
     expect(row.renderer_lib_versions).toMatch(/^spark@\d+\.\d+\.\d+;three@\d+\.\d+\.\d+$/u);
-    expect(row.export_schema_version).toBe('2.0');
+    expect(row.export_schema_version).toBe('2.1');
+  });
+
+  it('appends the schema 2.1 windowed-SSIM columns after the 55 schema 2.0 ones', () => {
+    expect(BENCHMARK_CSV_HEADERS).toHaveLength(57);
+    expect(BENCHMARK_CSV_HEADERS.slice(55)).toEqual(['ssim_windowed', 'ssim_windowed_min']);
   });
 
   it('maps a trajectory batch result into benchmark CSV fields', () => {
@@ -249,6 +254,46 @@ describe('benchmarkCsvExport', () => {
     expect(staticRow.interframe_ssim_min).toBe('');
     expect(staticRow.psnr_min_db).toBe('');
     expect(staticRow.ssim_min).toBe('');
+  });
+
+  it('exports windowed SSIM for both static and trajectory rows', () => {
+    const trajectory = batchResult('trajectory-orbit');
+    trajectory.results[0].metrics = {
+      psnrMean: 57.47,
+      ssimMean: 0.99991,
+      psnrMin: 51.02,
+      ssimMin: 0.99871,
+      ssimWindowedMean: 0.93412,
+      ssimWindowedMin: 0.88109,
+      interFrameSSIMMean: 0.99321,
+      interFrameSSIMStdDev: 0.004512,
+      interFrameSSIMMin: 0.97654,
+      worstTransitionFrame: 17,
+      totalFrames: 60,
+    };
+
+    const [trajectoryRow] = createBenchmarkCsvRows([trajectory], runtimeInfo);
+    expect(trajectoryRow.ssim_windowed).toBe('0.9341');
+    expect(trajectoryRow.ssim_windowed_min).toBe('0.8811');
+    // the whole-image columns keep their own, unrelated values
+    expect(trajectoryRow.ssim).toBe('0.9999');
+    expect(trajectoryRow.ssim_min).toBe('0.9987');
+
+    const staticInput = batchResult('static-quality');
+    staticInput.results[0].metrics = { psnr: 58.37, ssim: 0.99997, ssimWindowed: 0.91234 };
+    const [staticRow] = createBenchmarkCsvRows([staticInput], runtimeInfo);
+    expect(staticRow.ssim_windowed).toBe('0.9123');
+    // no per-frame minimum exists for a single static capture
+    expect(staticRow.ssim_windowed_min).toBe('');
+    expect(staticRow.ssim).toBe('1.0000');
+  });
+
+  it('blanks the windowed columns when a run predates the metric', () => {
+    const legacy = batchResult('trajectory-orbit');
+    legacy.results[0].metrics = { psnrMean: 57.47, ssimMean: 0.99991 };
+    const [row] = createBenchmarkCsvRows([legacy], runtimeInfo);
+    expect(row.ssim_windowed).toBe('');
+    expect(row.ssim_windowed_min).toBe('');
   });
 
   it('exports load phase breakdown on front rows and blanks elsewhere', () => {

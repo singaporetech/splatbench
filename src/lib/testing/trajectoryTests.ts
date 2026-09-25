@@ -140,6 +140,7 @@ async function runTrajectoryTest(
             t,
             psnr: null as number | null,
             ssim: null as number | null,
+            ssimWindowed: null as number | null,
           }));
 
     const metricsResult = buildTrajectoryMetricsResult(
@@ -187,6 +188,12 @@ async function runTrajectoryTest(
     if (metricsResult.aggregatePerFrame.ssimMin !== null) {
       metrics.ssimMin = metricsResult.aggregatePerFrame.ssimMin;
     }
+    if (metricsResult.aggregatePerFrame.ssimWindowedMean !== null) {
+      metrics.ssimWindowedMean = metricsResult.aggregatePerFrame.ssimWindowedMean;
+    }
+    if (metricsResult.aggregatePerFrame.ssimWindowedMin !== null) {
+      metrics.ssimWindowedMin = metricsResult.aggregatePerFrame.ssimWindowedMin;
+    }
 
     return {
       testId,
@@ -227,6 +234,15 @@ async function runTrajectoryTest(
               {
                 label: 'SSIM vs Ref (mean)',
                 value: metricsResult.aggregatePerFrame.ssimMean,
+                higherIsBetter: true as boolean | null,
+              },
+            ]
+          : []),
+        ...(metricsResult.aggregatePerFrame.ssimWindowedMean !== null
+          ? [
+              {
+                label: 'Windowed SSIM vs Ref (mean)',
+                value: metricsResult.aggregatePerFrame.ssimWindowedMean,
                 higherIsBetter: true as boolean | null,
               },
             ]

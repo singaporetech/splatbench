@@ -203,6 +203,185 @@ export function calculateSSIM(imageA: ImageData, imageB: ImageData): number {
   return ssim;
 }
 
+const SSIM_WINDOW_SIZE = 11;
+const SSIM_WINDOW_SIGMA = 1.5;
+
+/**
+ * Stride used by the static-quality and trajectory metrics. Stride 1 evaluates
+ * every valid window position, as the reference implementations do, so the
+ * exported values compare directly with scikit-image.
+ */
+export const WINDOWED_SSIM_STRIDE = 1;
+
+/** Normalized 1-D Gaussian; the 2-D window is its outer product with itself. */
+function gaussianKernel1D(size: number, sigma: number): Float64Array {
+  const kernel = new Float64Array(size);
+  const radius = (size - 1) / 2;
+  let total = 0;
+
+  for (let i = 0; i < size; i++) {
+    const x = i - radius;
+    const weight = Math.exp(-(x * x) / (2 * sigma * sigma));
+    kernel[i] = weight;
+    total += weight;
+  }
+
+  for (let i = 0; i < size; i++) {
+    kernel[i] /= total;
+  }
+
+  return kernel;
+}
+
+const SSIM_GAUSSIAN_KERNEL = gaussianKernel1D(SSIM_WINDOW_SIZE, SSIM_WINDOW_SIGMA);
+
+/** Write one row of BT.601 luma into `out`, matching toGrayscale(). */
+function writeLumaRow(imageData: ImageData, y: number, out: Float64Array): void {
+  const { data, width } = imageData;
+  let idx = y * width * 4;
+
+  for (let x = 0; x < width; x++) {
+    out[x] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+    idx += 4;
+  }
+}
+
+export interface WindowedSSIMOptions {
+  /**
+   * Spacing between evaluated window positions in pixels, default
+   * WINDOWED_SSIM_STRIDE. Strides above 1 are cheaper but can alias against
+   * high-frequency content, so report the stride with any values it produced.
+   */
+  stride?: number;
+}
+
+/**
+ * Windowed SSIM (Wang et al. 2004): an 11x11 Gaussian window with sigma 1.5
+ * slides over the BT.601 luma of both images, and the result is the mean SSIM
+ * over the (W-10) x (H-10) window positions that fit inside the image.
+ * C1 = (0.01 * 255)^2, C2 = (0.03 * 255)^2, and per-window variances and
+ * covariance use the population estimator, which matches
+ * skimage.metrics.structural_similarity with gaussian_weights=True, sigma=1.5,
+ * win_size=11, data_range=255 and use_sample_covariance=False.
+ *
+ * calculateSSIM (whole-image SSIM) is unchanged and still fills the ssim
+ * columns; this value goes in ssim_windowed.
+ */
+export function calculateWindowedSSIM(
+  imageA: ImageData,
+  imageB: ImageData,
+  options: WindowedSSIMOptions = {},
+): number {
+  if (imageA.width !== imageB.width || imageA.height !== imageB.height) {
+    throw new Error('Images must have the same dimensions for SSIM calculation');
+  }
+
+  const stride = options.stride ?? WINDOWED_SSIM_STRIDE;
+  if (!Number.isInteger(stride) || stride < 1) {
+    throw new Error(`Windowed SSIM stride must be a positive integer, got ${stride}`);
+  }
+
+  const width = imageA.width;
+  const height = imageA.height;
+
+  if (width < SSIM_WINDOW_SIZE || height < SSIM_WINDOW_SIZE) {
+    throw new Error(
+      `Images must be at least ${SSIM_WINDOW_SIZE}x${SSIM_WINDOW_SIZE} for windowed SSIM, ` +
+        `got ${width}x${height}`,
+    );
+  }
+
+  const L = 255;
+  const C1 = (0.01 * L) ** 2;
+  const C2 = (0.03 * L) ** 2;
+
+  const kernel = SSIM_GAUSSIAN_KERNEL;
+  const validWidth = width - SSIM_WINDOW_SIZE + 1;
+  const validHeight = height - SSIM_WINDOW_SIZE + 1;
+  const columns = Math.floor((validWidth - 1) / stride) + 1;
+
+  // separable pass 1: per image row, Gaussian-weighted horizontal sums for each
+  // window position (two means, two second moments, and the cross moment)
+  const hSumA = new Float64Array(columns * height);
+  const hSumB = new Float64Array(columns * height);
+  const hSumAA = new Float64Array(columns * height);
+  const hSumBB = new Float64Array(columns * height);
+  const hSumAB = new Float64Array(columns * height);
+
+  const lumaA = new Float64Array(width);
+  const lumaB = new Float64Array(width);
+
+  for (let y = 0; y < height; y++) {
+    writeLumaRow(imageA, y, lumaA);
+    writeLumaRow(imageB, y, lumaB);
+    const rowOffset = y * columns;
+
+    for (let c = 0; c < columns; c++) {
+      const x0 = c * stride;
+      let sumA = 0;
+      let sumB = 0;
+      let sumAA = 0;
+      let sumBB = 0;
+      let sumAB = 0;
+
+      for (let k = 0; k < SSIM_WINDOW_SIZE; k++) {
+        const weight = kernel[k];
+        const valueA = lumaA[x0 + k];
+        const valueB = lumaB[x0 + k];
+        sumA += weight * valueA;
+        sumB += weight * valueB;
+        sumAA += weight * valueA * valueA;
+        sumBB += weight * valueB * valueB;
+        sumAB += weight * valueA * valueB;
+      }
+
+      const idx = rowOffset + c;
+      hSumA[idx] = sumA;
+      hSumB[idx] = sumB;
+      hSumAA[idx] = sumAA;
+      hSumBB[idx] = sumBB;
+      hSumAB[idx] = sumAB;
+    }
+  }
+
+  // separable pass 2: weight the row sums vertically, turn the moments into
+  // per-window SSIM, and average over window positions
+  let ssimTotal = 0;
+  let windowCount = 0;
+
+  for (let y0 = 0; y0 < validHeight; y0 += stride) {
+    for (let c = 0; c < columns; c++) {
+      let meanA = 0;
+      let meanB = 0;
+      let momentAA = 0;
+      let momentBB = 0;
+      let momentAB = 0;
+
+      for (let k = 0; k < SSIM_WINDOW_SIZE; k++) {
+        const weight = kernel[k];
+        const idx = (y0 + k) * columns + c;
+        meanA += weight * hSumA[idx];
+        meanB += weight * hSumB[idx];
+        momentAA += weight * hSumAA[idx];
+        momentBB += weight * hSumBB[idx];
+        momentAB += weight * hSumAB[idx];
+      }
+
+      const varA = momentAA - meanA * meanA;
+      const varB = momentBB - meanB * meanB;
+      const covAB = momentAB - meanA * meanB;
+
+      const numerator = (2 * meanA * meanB + C1) * (2 * covAB + C2);
+      const denominator = (meanA * meanA + meanB * meanB + C1) * (varA + varB + C2);
+
+      ssimTotal += numerator / denominator;
+      windowCount++;
+    }
+  }
+
+  return ssimTotal / windowCount;
+}
+
 /**
  * Find all Gaussian Splat viewer canvases in the document
  */

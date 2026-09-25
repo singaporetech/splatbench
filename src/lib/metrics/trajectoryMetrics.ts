@@ -6,7 +6,7 @@
  * See docs/interactive-quality-metrics-research.md, sections 3.1 and 4.1.
  */
 
-import { calculatePSNR, calculateSSIM } from './imageQuality';
+import { calculatePSNR, calculateSSIM, calculateWindowedSSIM } from './imageQuality';
 import type { SparkViewerContext } from '../../types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -16,6 +16,8 @@ export interface PerFrameMetric {
   t: number;
   psnr: number | null;
   ssim: number | null;
+  // 11x11 Gaussian-windowed SSIM, alongside the whole-image value
+  ssimWindowed: number | null;
 }
 
 export interface InterFrameMetric {
@@ -36,6 +38,8 @@ export interface TrajectoryMetricsResult {
     ssimMin: number | null;
     ssimMax: number | null;
     ssimStdDev: number | null;
+    ssimWindowedMean: number | null;
+    ssimWindowedMin: number | null;
   };
 
   temporalConsistency: {
@@ -115,6 +119,7 @@ export function computePerFrameMetrics(
     const frameB = framesB[i];
     let psnr: number | null = null;
     let ssim: number | null = null;
+    let ssimWindowed: number | null = null;
 
     try {
       psnr = calculatePSNR(frameA, frameB);
@@ -123,11 +128,19 @@ export function computePerFrameMetrics(
       console.warn(`Failed to compute metrics for frame ${i}`);
     }
 
+    // guarded separately so a failure cannot drop the whole-image values
+    try {
+      ssimWindowed = calculateWindowedSSIM(frameA, frameB);
+    } catch {
+      console.warn(`Failed to compute windowed SSIM for frame ${i}`);
+    }
+
     return {
       frameIndex: i,
       t: tValues[i] ?? i / Math.max(1, framesA.length - 1),
       psnr,
       ssim,
+      ssimWindowed,
     };
   });
 }
@@ -192,6 +205,14 @@ export function buildTrajectoryMetricsResult(
     .filter((v): v is number => v !== null);
   const ssimStats = ssimValues.length > 0 ? computeStats(ssimValues) : null;
 
+  const ssimWindowedValues = perFrameMetrics
+    .map((m) => m.ssimWindowed)
+    .filter((v): v is number => v !== null);
+  const ssimWindowedStats =
+    ssimWindowedValues.length > 0 ? computeStats(ssimWindowedValues) : null;
+
+  // inter-frame SSIM stays whole-image: it measures stability between
+  // consecutive frames, not per-frame fidelity against the reference
   const interSSIMValues = interFrameMetrics.map((m) => m.ssim);
   const interStats = computeStats(interSSIMValues);
 
@@ -216,6 +237,8 @@ export function buildTrajectoryMetricsResult(
       ssimMin: ssimStats?.min ?? null,
       ssimMax: ssimStats?.max ?? null,
       ssimStdDev: ssimStats?.stdDev ?? null,
+      ssimWindowedMean: ssimWindowedStats?.mean ?? null,
+      ssimWindowedMin: ssimWindowedStats?.min ?? null,
     },
     temporalConsistency: {
       interFrameSSIMMean: interStats.mean,

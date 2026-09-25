@@ -1,7 +1,11 @@
 import type { Test, TestScene, TestResult, OnProgress } from './types';
 import { registerTest } from './registry';
 import { captureFrame } from '../../lib/metrics/trajectoryMetrics';
-import { calculatePSNR, calculateSSIM } from '../../lib/metrics/imageQuality';
+import {
+  calculatePSNR,
+  calculateSSIM,
+  calculateWindowedSSIM,
+} from '../../lib/metrics/imageQuality';
 
 /**
  * Wait for two animation frames so the GPU has committed the latest work.
@@ -78,6 +82,18 @@ const staticQualityTest: Test = {
 
     const ssim = calculateSSIM(frameA, frameB);
 
+    if (signal.aborted) throw new Error('Test cancelled');
+
+    onProgress({
+      fraction: 0.9,
+      message: 'Computing windowed SSIM...',
+      phase: 'Computing Metrics',
+    });
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    const ssimWindowed = calculateWindowedSSIM(frameA, frameB);
+
     onProgress({
       fraction: 1,
       message: 'Complete',
@@ -94,6 +110,7 @@ const staticQualityTest: Test = {
       metrics: {
         psnr,
         ssim,
+        ssimWindowed,
       },
       metricEntries: [
         {
@@ -107,8 +124,15 @@ const staticQualityTest: Test = {
           value: ssim,
           higherIsBetter: true,
         },
+        {
+          label: 'Windowed SSIM',
+          value: ssimWindowed,
+          higherIsBetter: true,
+        },
       ],
-      summary: `PSNR ${psnr.toFixed(2)} dB, SSIM ${ssim.toFixed(4)}`,
+      summary:
+        `PSNR ${psnr.toFixed(2)} dB, SSIM ${ssim.toFixed(4)}, ` +
+        `windowed SSIM ${ssimWindowed.toFixed(4)}`,
       passed,
       completedAt: new Date().toISOString(),
       durationMs,

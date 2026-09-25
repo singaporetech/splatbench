@@ -72,6 +72,9 @@ export const BENCHMARK_CSV_HEADERS = [
   'load_read_ms_test',
   'load_init_ms_test',
   'load_first_frame_ms_test',
+  // schema 2.1: windowed SSIM; ssim and ssim_min above stay whole-image
+  'ssim_windowed',
+  'ssim_windowed_min',
 ] as const;
 
 type BenchmarkCsvHeader = (typeof BENCHMARK_CSV_HEADERS)[number];
@@ -413,6 +416,8 @@ function createBenchmarkCsvRow(
     load_read_ms_test: isFront ? loadPhaseCell(metrics?.test.loadReadMs) : '',
     load_init_ms_test: isFront ? loadPhaseCell(metrics?.test.loadInitMs) : '',
     load_first_frame_ms_test: isFront ? loadPhaseCell(metrics?.test.loadFirstFrameMs) : '',
+    ssim_windowed: formatNumber(metricValue(input.result, ['ssimWindowed', 'ssimWindowedMean']), 4),
+    ssim_windowed_min: formatNumber(metricValue(input.result, ['ssimWindowedMin']), 4),
   };
 }
 

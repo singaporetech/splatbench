@@ -3,7 +3,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { calculatePSNR, calculateSSIM } from './imageQuality';
+import {
+  calculatePSNR,
+  calculateSSIM,
+  calculateWindowedSSIM,
+  WINDOWED_SSIM_STRIDE,
+} from './imageQuality';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -191,6 +196,238 @@ describe('calculateSSIM', () => {
     const ssim = calculateSSIM(gradA, gradB);
     // structurally very similar, just slightly brighter
     expect(ssim).toBeGreaterThan(0.9);
+  });
+});
+
+// ─── Windowed SSIM Tests ─────────────────────────────────────────────────────
+
+/**
+ * Reference fixtures for windowed SSIM. The three 64x64 RGB pairs come from a
+ * plain 32-bit LCG that Python and JS reproduce exactly, and the expected
+ * values are skimage.metrics.structural_similarity(gaussian_weights=True,
+ * sigma=1.5, win_size=11, data_range=255, use_sample_covariance=False) on the
+ * BT.601 luma of the same pairs. Regenerate them with
+ *   uv run --with scikit-image --with numpy python3 scripts/ssim_reference_fixtures.py
+ *
+ * The RGB byte sums are checked first, so a generator mismatch fails as a
+ * fixture error rather than as a metric error.
+ */
+const FIXTURE_SIZE = 64;
+
+function lcgStep(state: number): number {
+  return (Math.imul(state, 1664525) + 1013904223) >>> 0;
+}
+
+function fixtureBase(): ImageData {
+  return createImageDataFromPixels(FIXTURE_SIZE, FIXTURE_SIZE, (x, y) => [
+    (x * 4) % 256,
+    (y * 3 + x) % 256,
+    Math.floor((x * y) / 3) % 256,
+    255,
+  ]);
+}
+
+function fixtureNoisy(): ImageData {
+  let state = 20260726;
+  return createImageDataFromPixels(FIXTURE_SIZE, FIXTURE_SIZE, (x, y) => {
+    const channels: number[] = [
+      (x * 4) % 256,
+      (y * 3 + x) % 256,
+      Math.floor((x * y) / 3) % 256,
+    ];
+    const noisy = channels.map((value) => {
+      state = lcgStep(state);
+      const offset = ((state >>> 8) % 49) - 24;
+      return Math.min(255, Math.max(0, value + offset));
+    });
+    return [noisy[0], noisy[1], noisy[2], 255];
+  });
+}
+
+function fixtureShifted(): ImageData {
+  // np.roll(base, 3, axis=1) then np.roll(..., 2, axis=0)
+  return createImageDataFromPixels(FIXTURE_SIZE, FIXTURE_SIZE, (x, y) => {
+    const sx = (x - 3 + FIXTURE_SIZE) % FIXTURE_SIZE;
+    const sy = (y - 2 + FIXTURE_SIZE) % FIXTURE_SIZE;
+    return [
+      (sx * 4) % 256,
+      (sy * 3 + sx) % 256,
+      Math.floor((sx * sy) / 3) % 256,
+      255,
+    ];
+  });
+}
+
+/** Sum of the R, G, B bytes; alpha excluded, matching the Python checksum. */
+function rgbChecksum(image: ImageData): number {
+  let total = 0;
+  for (let i = 0; i < image.data.length; i += 4) {
+    total += image.data[i] + image.data[i + 1] + image.data[i + 2];
+  }
+  return total;
+}
+
+describe('calculateWindowedSSIM fixtures', () => {
+  it('reproduces the Python fixture generator byte-for-byte', () => {
+    expect(rgbChecksum(fixtureBase())).toBe(1470606);
+    expect(rgbChecksum(fixtureNoisy())).toBe(1471553);
+    expect(rgbChecksum(fixtureShifted())).toBe(1470606);
+  });
+
+  it('matches skimage on identical images (expected 1.0)', () => {
+    const base = fixtureBase();
+    expect(calculateWindowedSSIM(base, fixtureBase(), { stride: 1 })).toBeCloseTo(1.0, 10);
+  });
+
+  it('matches skimage on a known noisy pair', () => {
+    // skimage use_sample_covariance=False: 0.6322029502409735
+    // skimage use_sample_covariance=True:  0.6314240956408389 (also within 1e-3)
+    const value = calculateWindowedSSIM(fixtureBase(), fixtureNoisy(), { stride: 1 });
+    expect(Math.abs(value - 0.6322029502409735)).toBeLessThan(1e-3);
+    expect(Math.abs(value - 0.6314240956408389)).toBeLessThan(1e-3);
+    expect(value).toBeCloseTo(0.6322029502409735, 9);
+  });
+
+  it('matches skimage on a known shifted pair', () => {
+    // skimage use_sample_covariance=False: 0.5996976016750154
+    // skimage use_sample_covariance=True:  0.5987088936013114 (also within 1e-3)
+    const value = calculateWindowedSSIM(fixtureBase(), fixtureShifted(), { stride: 1 });
+    expect(Math.abs(value - 0.5996976016750154)).toBeLessThan(1e-3);
+    expect(Math.abs(value - 0.5987088936013114)).toBeLessThan(1e-3);
+    expect(value).toBeCloseTo(0.5996976016750154, 9);
+  });
+
+  it('reproduces the strided reference when a stride above 1 is requested', () => {
+    // stride 4 values of the same window grid, from the Python reference
+    expect(calculateWindowedSSIM(fixtureBase(), fixtureBase(), { stride: 4 })).toBeCloseTo(1.0, 10);
+    expect(
+      calculateWindowedSSIM(fixtureBase(), fixtureNoisy(), { stride: 4 }),
+    ).toBeCloseTo(0.6276894309389545, 9);
+    expect(
+      calculateWindowedSSIM(fixtureBase(), fixtureShifted(), { stride: 4 }),
+    ).toBeCloseTo(0.5484088086689632, 9);
+  });
+
+  it('defaults to stride 1, which is the exported production stride', () => {
+    expect(WINDOWED_SSIM_STRIDE).toBe(1);
+    const noisy = fixtureNoisy();
+    expect(calculateWindowedSSIM(fixtureBase(), noisy)).toBe(
+      calculateWindowedSSIM(fixtureBase(), noisy, { stride: 1 }),
+    );
+  });
+});
+
+describe('calculateWindowedSSIM properties', () => {
+  it('returns 1.0 for a uniform image compared with itself', () => {
+    const img = createImageData(16, 16, [128, 64, 32, 255]);
+    expect(calculateWindowedSSIM(img, img)).toBeCloseTo(1.0, 10);
+  });
+
+  it('is symmetric', () => {
+    const a = fixtureBase();
+    const b = fixtureNoisy();
+    expect(calculateWindowedSSIM(a, b)).toBeCloseTo(calculateWindowedSSIM(b, a), 12);
+  });
+
+  it('decreases as noise increases', () => {
+    const ref = createImageDataFromPixels(32, 32, (x, y) => [
+      (x * 8) % 256,
+      (y * 8) % 256,
+      128,
+      255,
+    ]);
+    const mild = createImageDataFromPixels(32, 32, (x, y) => [
+      ((x * 8) % 256) + (x % 2 ? 3 : -3),
+      (y * 8) % 256,
+      128,
+      255,
+    ]);
+    const heavy = createImageDataFromPixels(32, 32, (x, y) => [
+      ((x * 8) % 256) + (x % 2 ? 60 : -60),
+      (y * 8) % 256,
+      128,
+      255,
+    ]);
+
+    expect(calculateWindowedSSIM(ref, mild)).toBeGreaterThan(
+      calculateWindowedSSIM(ref, heavy),
+    );
+  });
+
+  it('is lower than whole-image SSIM on a locally corrupted textured image', () => {
+    // a local defect barely moves the global statistics whole-image SSIM sees,
+    // but the sliding window registers it
+    const ref = fixtureBase();
+    const defect = createImageDataFromPixels(FIXTURE_SIZE, FIXTURE_SIZE, (x, y) => {
+      if (x >= 20 && x < 36 && y >= 20 && y < 36) return [30, 30, 30, 255];
+      return [
+        (x * 4) % 256,
+        (y * 3 + x) % 256,
+        Math.floor((x * y) / 3) % 256,
+        255,
+      ];
+    });
+
+    const whole = calculateSSIM(ref, defect);
+    const windowed = calculateWindowedSSIM(ref, defect);
+
+    expect(whole).toBeGreaterThan(0.9);
+    expect(windowed).toBeLessThan(whole);
+  });
+
+  it('throws on dimension mismatch', () => {
+    const a = createImageData(16, 16);
+    const b = createImageData(16, 12);
+    expect(() => calculateWindowedSSIM(a, b)).toThrow('same dimensions');
+  });
+
+  it('throws when an image is smaller than the 11x11 window', () => {
+    const a = createImageData(8, 8);
+    expect(() => calculateWindowedSSIM(a, a)).toThrow('at least 11x11');
+  });
+
+  it('rejects a non-positive or fractional stride', () => {
+    const a = createImageData(16, 16);
+    expect(() => calculateWindowedSSIM(a, a, { stride: 0 })).toThrow('positive integer');
+    expect(() => calculateWindowedSSIM(a, a, { stride: 1.5 })).toThrow('positive integer');
+  });
+
+  it('stays cheap enough for a 1280x800 frame at the production stride', () => {
+    // windowed SSIM runs after capture but has to stay affordable across 60
+    // keyframes; the bound is loose so slower CI hardware does not flake
+    let state = 12345;
+    const noise = () => {
+      state = lcgStep(state);
+      return (state >>> 8) % 256;
+    };
+    const frameA = createImageDataFromPixels(1280, 800, (x, y) => [
+      (x * 3 + y) % 256,
+      (y * 7) % 256,
+      noise(),
+      255,
+    ]);
+    const frameB = createImageDataFromPixels(1280, 800, (x, y) => [
+      (x * 3 + y + 2) % 256,
+      (y * 7) % 256,
+      noise(),
+      255,
+    ]);
+
+    calculateWindowedSSIM(frameA, frameB);
+    const start = performance.now();
+    calculateWindowedSSIM(frameA, frameB);
+    const elapsedMs = performance.now() - start;
+
+    expect(elapsedMs).toBeLessThan(1000);
+  });
+
+  it('leaves whole-image SSIM untouched', () => {
+    // computing the windowed metric must not change whole-image SSIM
+    const a = fixtureBase();
+    const b = fixtureNoisy();
+    const before = calculateSSIM(a, b);
+    calculateWindowedSSIM(a, b);
+    expect(calculateSSIM(a, b)).toBe(before);
   });
 });
 
