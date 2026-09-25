@@ -381,29 +381,6 @@ and conversion instructions:
 
 ---
 
-## Deployment
-
-### GitHub Pages (Manual)
-
-```bash
-npm run deploy
-```
-
-This will build and deploy to the `gh-pages` branch.
-
-### GitHub Pages (Automatic)
-
-The repository includes a GitHub Actions workflow that automatically deploys on every push to `main`.
-
-To enable:
-1. Go to repository Settings → Pages
-2. Set Source to "GitHub Actions"
-3. Push to `main` branch
-
-The site will be available at `https://<your-org>.github.io/splatbench/`
-
----
-
 ## Contributing
 
 This is part of an academic research project. Contributions are welcome, especially:
