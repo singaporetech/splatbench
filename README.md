@@ -198,7 +198,9 @@ results are directly comparable across sessions, machines, and users.
    - Trajectories sample 60 keyframes at `t = i / 59`. Orbit sweeps a 90° arc at 15° elevation linearly; dolly and pan ease with `(1 − cos(πt)) / 2`. Per-frame PSNR and SSIM are averaged over the path, and the per-frame minima are exported alongside the means. Inter-frame SSIM compares consecutive frames of the asset under test.
    - Initialization time starts before the file bytes are read and stops when the renderer reports the mesh initialized. It excludes scene insertion, shader compilation, the first sort and render, and network transfer, and it is recorded on the `front` viewpoint rows because each pair is loaded once.
 
-3. **Export:** every measurement is timestamped and tagged with the
+3. **Validation gates:** a capture stops its measurement with an error, rather than exporting numbers, when WebGL runs on a software renderer (SwiftShader, llvmpipe, Microsoft Basic Render Driver and similar) or reports no renderer, when the captured frame is fully transparent or a single flat colour, or when the reference and test resolutions differ.
+
+4. **Export:** every measurement is timestamped and tagged with the
    browser, GPU, scene, format, viewpoint, and replicate index, and is
    written to a benchmark CSV with a fixed column order, so runs from
    different sessions and machines can be combined and analysed together.

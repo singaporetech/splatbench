@@ -4,6 +4,7 @@
  */
 
 import type { SparkViewerContext } from '../../types';
+import { assertCaptureHasContent, assertHardwareWebGL } from './captureGates';
 
 /**
  * Captures a WebGL canvas to ImageData by reading pixels directly from WebGL context
@@ -18,6 +19,7 @@ export function captureCanvas(canvas: HTMLCanvasElement, context?: SparkViewerCo
           reject(new Error('Failed to get WebGL context'));
           return;
         }
+        assertHardwareWebGL(gl);
 
         // force a render immediately before readPixels when a viewer context is available
         if (context) {
@@ -53,21 +55,7 @@ export function captureCanvas(canvas: HTMLCanvasElement, context?: SparkViewerCo
           }
         }
 
-        let hasColor = false;
-        for (let i = 3; i < imageData.data.length; i += 4) {
-          if (imageData.data[i] > 0) {
-            hasColor = true;
-            break;
-          }
-        }
-        
-        if (!hasColor) {
-          console.warn('Captured canvas appears to be empty/transparent - all pixels have alpha=0');
-          console.log('First 10 RGBA values:', Array.from(pixels.slice(0, 40)));
-        } else {
-          console.log('Successfully captured canvas with color data');
-        }
-        
+        assertCaptureHasContent(imageData);
         resolve(imageData);
       } catch (error) {
         reject(error as Error);

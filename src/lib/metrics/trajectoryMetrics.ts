@@ -8,6 +8,7 @@
 
 import { calculatePSNR, calculateSSIM, calculateWindowedSSIM } from './imageQuality';
 import type { SparkViewerContext } from '../../types';
+import { assertCaptureHasContent, assertHardwareWebGL } from './captureGates';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ export function captureFrame(context: SparkViewerContext): ImageData {
   if (!gl) {
     throw new Error('Cannot get WebGL context for frame capture');
   }
+  assertHardwareWebGL(gl);
 
   // WebGL2 renderers may leave PIXEL_PACK_BUFFER bound, which breaks readPixels
   const gl2 = gl as WebGL2RenderingContext;
@@ -94,6 +96,7 @@ export function captureFrame(context: SparkViewerContext): ImageData {
     }
   }
 
+  assertCaptureHasContent(imageData);
   return imageData;
 }
 
