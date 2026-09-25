@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { BenchmarkMetrics } from '../../types';
 import {
-  PAPER_CSV_HEADERS,
-  createPaperCsvRows,
-  exportPaperBatchResultsToCSV,
-  type PaperBatchResultInput,
-  type PaperRuntimeInfo,
-} from './paperCsvExport';
+  BENCHMARK_CSV_HEADERS,
+  createBenchmarkCsvRows,
+  exportBenchmarkBatchResultsToCSV,
+  type BenchmarkBatchResultInput,
+  type BenchmarkRuntimeInfo,
+} from './benchmarkCsvExport';
 
-const runtimeInfo: PaperRuntimeInfo = {
+const runtimeInfo: BenchmarkRuntimeInfo = {
   browserName: 'Chrome',
   browserVersion: '147.0',
   browserEngine: 'Blink',
@@ -38,7 +38,7 @@ function metrics(overrides: Partial<BenchmarkMetrics> = {}): BenchmarkMetrics {
   };
 }
 
-function batchResult(testId: string): PaperBatchResultInput {
+function batchResult(testId: string): BenchmarkBatchResultInput {
   return {
     pairName: 'bonsai-ksplat-front-r2',
     refFile: 'ref_bonsai-ksplat-front-r2.ply',
@@ -59,7 +59,7 @@ function batchResult(testId: string): PaperBatchResultInput {
         durationMs: 3900,
       },
     ],
-    paperMetricsByTestId: {
+    benchmarkMetricsByTestId: {
       [testId]: {
         reference: metrics(),
         test: metrics({ fps: 98.4, frameTime: 10.16, fileSize: 5.37 }),
@@ -71,16 +71,16 @@ function batchResult(testId: string): PaperBatchResultInput {
   };
 }
 
-describe('paperCsvExport', () => {
+describe('benchmarkCsvExport', () => {
   it('uses the validator-required header order', () => {
-    const csv = exportPaperBatchResultsToCSV([], runtimeInfo);
+    const csv = exportBenchmarkBatchResultsToCSV([], runtimeInfo);
 
-    expect(csv).toBe(PAPER_CSV_HEADERS.join(','));
-    expect(PAPER_CSV_HEADERS).toHaveLength(41);
+    expect(csv).toBe(BENCHMARK_CSV_HEADERS.join(','));
+    expect(BENCHMARK_CSV_HEADERS).toHaveLength(41);
   });
 
-  it('maps a trajectory batch result into paper CSV fields', () => {
-    const [row] = createPaperCsvRows([batchResult('trajectory-orbit')], runtimeInfo);
+  it('maps a trajectory batch result into benchmark CSV fields', () => {
+    const [row] = createBenchmarkCsvRows([batchResult('trajectory-orbit')], runtimeInfo);
 
     expect(row.test_id).toBe('trajectory-orbit');
     expect(row.replicate).toBe('2');
@@ -103,7 +103,7 @@ describe('paperCsvExport', () => {
   });
 
   it('leaves static quality FPS fields blank and escapes camera JSON', () => {
-    const csv = exportPaperBatchResultsToCSV([batchResult('static-quality')], runtimeInfo);
+    const csv = exportBenchmarkBatchResultsToCSV([batchResult('static-quality')], runtimeInfo);
     const [, row] = csv.split('\n');
 
     expect(row).toContain('static-quality');
@@ -111,7 +111,7 @@ describe('paperCsvExport', () => {
     expect(row).toContain(',58.37,1.0000,,,,467,');
   });
 
-  it('uses explicit paper rows for repeated test ids across viewpoints and replicates', () => {
+  it('uses explicit benchmark rows for repeated test ids across viewpoints and replicates', () => {
     const repeatedResult = {
       testId: 'trajectory-orbit',
       metrics: { psnrMean: 61.23, ssimMean: 0.9988 },
@@ -122,7 +122,7 @@ describe('paperCsvExport', () => {
       durationMs: 3900,
     };
 
-    const rows = createPaperCsvRows(
+    const rows = createBenchmarkCsvRows(
       [
         {
           pairName: 'bonsai-ksplat',
@@ -131,7 +131,7 @@ describe('paperCsvExport', () => {
           refSizeBytes: 58_730_496,
           testSizeBytes: 5_630_853,
           results: [],
-          paperRows: [
+          benchmarkRows: [
             {
               pairName: 'bonsai-ksplat',
               refFile: 'ref_bonsai-ksplat.ply',
@@ -139,7 +139,7 @@ describe('paperCsvExport', () => {
               refSizeBytes: 58_730_496,
               testSizeBytes: 5_630_853,
               result: repeatedResult,
-              paperMetrics: {
+              benchmarkMetrics: {
                 reference: metrics(),
                 test: metrics({ fps: 98.4, frameTime: 10.16, fileSize: 5.37 }),
                 cameraPosition: { x: 0, y: 0, z: 4.2 },
@@ -163,7 +163,7 @@ describe('paperCsvExport', () => {
                 ...repeatedResult,
                 completedAt: '2026-04-12T05:28:04.947Z',
               },
-              paperMetrics: {
+              benchmarkMetrics: {
                 reference: metrics(),
                 test: metrics({ fps: 96.4, frameTime: 10.76, fileSize: 5.37 }),
                 cameraPosition: { x: -3, y: 0, z: 3 },

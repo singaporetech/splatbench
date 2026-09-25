@@ -1,26 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { createPaperRunPlans, parsePaperPairName } from './useBatchTestRunner';
+import { createBenchmarkRunPlans, parseBenchmarkPairName } from './useBatchTestRunner';
 
-describe('useBatchTestRunner paper protocol helpers', () => {
-  it('parses canonical paper pair names', () => {
-    expect(parsePaperPairName('bonsai-ksplat')).toEqual({
+describe('useBatchTestRunner benchmark protocol helpers', () => {
+  it('parses canonical benchmark pair names', () => {
+    expect(parseBenchmarkPairName('bonsai-ksplat')).toEqual({
       sceneName: 'bonsai',
       testFormat: 'ksplat',
     });
-    expect(parsePaperPairName('truck-spz')).toEqual({
+    expect(parseBenchmarkPairName('truck-spz')).toEqual({
       sceneName: 'truck',
       testFormat: 'spz',
     });
   });
 
-  it('rejects non-paper pair names', () => {
-    expect(parsePaperPairName('bonsai')).toBeNull();
-    expect(parsePaperPairName('bonsai-ply')).toBeNull();
-    expect(parsePaperPairName('custom-scene-splat')).toBeNull();
+  it('rejects non-benchmark pair names', () => {
+    expect(parseBenchmarkPairName('bonsai')).toBeNull();
+    expect(parseBenchmarkPairName('bonsai-ply')).toBeNull();
+    expect(parseBenchmarkPairName('custom-scene-splat')).toBeNull();
   });
 
-  it('creates 5 viewpoints x 3 replicates for paper pairs', () => {
-    const plans = createPaperRunPlans('bonsai-splat');
+  it('creates 5 viewpoints x 3 replicates for benchmark pairs', () => {
+    const plans = createBenchmarkRunPlans('bonsai-splat');
 
     expect(plans).not.toBeNull();
     expect(plans).toHaveLength(15);

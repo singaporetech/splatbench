@@ -121,7 +121,7 @@ export const BATCH_TEMPLATES = {
   /**
    * Complete 6-scene benchmark, usually 1-2 hours
    */
-  paperEvaluation: {
+  fullBenchmark: {
     name: 'Full Benchmark',
     description: 'Complete 6-scene benchmark (5 viewpoints, 3 replicates). ~1-2 hours.',
     defaultScenes: ['bonsai', 'garden', 'playroom', 'truck', 'train', 'flower'],
@@ -129,7 +129,7 @@ export const BATCH_TEMPLATES = {
     viewpointCount: 5,
     defaultReplicates: 3,
     defaultConfig: {
-      testName: 'paper-evaluation',
+      testName: 'full-benchmark',
       scenes: [],
       referenceFormat: 'ply',
       testFormats: ['splat', 'ksplat', 'spz'],

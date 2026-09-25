@@ -7,21 +7,21 @@ import {
   getScenePresets,
   type ViewpointPreset,
 } from '../lib/camera/cameraPresets';
-import type { PaperBatchRowInput, PaperMetricSnapshot } from '../lib/export/paperCsvExport';
+import type { BenchmarkBatchRowInput, BenchmarkMetricSnapshot } from '../lib/export/benchmarkCsvExport';
 
 // register built-in tests through module side effects
 import '../lib/testing/trajectoryTests';
 import '../lib/testing/staticQualityTest';
 
-const PAPER_SCENE_PATTERN = /^(bonsai|flower|garden|playroom|train|truck)-(splat|ksplat|spz)$/u;
-const PAPER_REPLICATES = ['1', '2', '3'] as const;
+const BENCHMARK_SCENE_PATTERN = /^(bonsai|flower|garden|playroom|train|truck)-(splat|ksplat|spz)$/u;
+const BENCHMARK_REPLICATES = ['1', '2', '3'] as const;
 
-export interface ParsedPaperPairName {
+export interface ParsedBenchmarkPairName {
   sceneName: string;
   testFormat: string;
 }
 
-export interface PaperRunPlan {
+export interface BenchmarkRunPlan {
   sceneName: string;
   testFormat: string;
   viewpointId: string;
@@ -29,8 +29,8 @@ export interface PaperRunPlan {
   preset: ViewpointPreset;
 }
 
-export function parsePaperPairName(pairName: string): ParsedPaperPairName | null {
-  const match = pairName.toLowerCase().match(PAPER_SCENE_PATTERN);
+export function parseBenchmarkPairName(pairName: string): ParsedBenchmarkPairName | null {
+  const match = pairName.toLowerCase().match(BENCHMARK_SCENE_PATTERN);
   if (!match) return null;
 
   return {
@@ -39,12 +39,12 @@ export function parsePaperPairName(pairName: string): ParsedPaperPairName | null
   };
 }
 
-export function createPaperRunPlans(pairName: string): PaperRunPlan[] | null {
-  const parsed = parsePaperPairName(pairName);
+export function createBenchmarkRunPlans(pairName: string): BenchmarkRunPlan[] | null {
+  const parsed = parseBenchmarkPairName(pairName);
   if (!parsed) return null;
 
   return getScenePresets(parsed.sceneName).flatMap((preset) =>
-    PAPER_REPLICATES.map((replicate) => ({
+    BENCHMARK_REPLICATES.map((replicate) => ({
       sceneName: parsed.sceneName,
       testFormat: parsed.testFormat,
       viewpointId: preset.id,
@@ -69,7 +69,7 @@ async function settleViewers(scene: TestScene): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 100));
 }
 
-async function applyPaperViewpoint(scene: TestScene, preset: ViewpointPreset): Promise<void> {
+async function applyBenchmarkViewpoint(scene: TestScene, preset: ViewpointPreset): Promise<void> {
   applyCameraPreset(scene.primary.camera, scene.primary.controls, preset);
   if (scene.reference) {
     applyCameraPreset(scene.reference.camera, scene.reference.controls, preset);
@@ -86,7 +86,7 @@ export interface BatchPairResult {
   refSizeBytes: number;
   testSizeBytes: number;
   results: TestResult[];
-  paperRows: PaperBatchRowInput[];
+  benchmarkRows: BenchmarkBatchRowInput[];
   error: string | null;
 }
 
@@ -104,16 +104,16 @@ export interface UseBatchTestRunnerReturn {
   startBatch: (
     pairs: FilePair[],
     loadPair: (ref: FilePair['ref'], test: FilePair['test']) => Promise<TestScene | null>,
-    collectPaperMetrics?: (
+    collectBenchmarkMetrics?: (
       scene: TestScene,
       pair: FilePair,
       result: TestResult,
-    ) => PaperMetricSnapshot,
+    ) => BenchmarkMetricSnapshot,
     prepareForTest?: (
       scene: TestScene,
       pair: FilePair,
       test: Test,
-      runPlan: PaperRunPlan | null,
+      runPlan: BenchmarkRunPlan | null,
     ) => Promise<void>,
   ) => Promise<void>;
   cancelBatch: () => void;
@@ -141,16 +141,16 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
         ref: FilePair['ref'],
         test: FilePair['test'],
       ) => Promise<TestScene | null>,
-      collectPaperMetrics?: (
+      collectBenchmarkMetrics?: (
         scene: TestScene,
         pair: FilePair,
         result: TestResult,
-      ) => PaperMetricSnapshot,
+      ) => BenchmarkMetricSnapshot,
       prepareForTest?: (
         scene: TestScene,
         pair: FilePair,
         test: Test,
-        runPlan: PaperRunPlan | null,
+        runPlan: BenchmarkRunPlan | null,
       ) => Promise<void>,
     ) => {
       if (pairs.length === 0) return;
@@ -159,7 +159,7 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
       abortRef.current = controller;
 
       const plannedRuns = pairs.reduce(
-        (sum, pair) => sum + (createPaperRunPlans(pair.name)?.length ?? 1),
+        (sum, pair) => sum + (createBenchmarkRunPlans(pair.name)?.length ?? 1),
         0,
       );
 
@@ -176,8 +176,8 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
         if (controller.signal.aborted) break;
 
         const pair = pairs[pairIdx];
-        const paperRunPlans = createPaperRunPlans(pair.name);
-        const runPlans = paperRunPlans ?? [null];
+        const benchmarkRunPlans = createBenchmarkRunPlans(pair.name);
+        const runPlans = benchmarkRunPlans ?? [null];
         const pairRunStartIndex = completedRuns;
 
         setCurrentPairIndex(completedRuns);
@@ -193,7 +193,7 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
           refSizeBytes: pair.ref.size,
           testSizeBytes: pair.test.size,
           results: [],
-          paperRows: [],
+          benchmarkRows: [],
           error: null,
         };
 
@@ -226,7 +226,7 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
               setCurrentTestMessage(
                 `Applying ${runPlan.viewpointId} preset (replicate ${runPlan.replicate})`,
               );
-              await applyPaperViewpoint(scene, runPlan.preset);
+              await applyBenchmarkViewpoint(scene, runPlan.preset);
             }
 
             for (let testIdx = 0; testIdx < allTests.length; testIdx++) {
@@ -263,15 +263,15 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
 
               pairResult.results.push(result);
 
-              const paperMetrics = collectPaperMetrics?.(scene, pair, result);
-              pairResult.paperRows.push({
+              const benchmarkMetrics = collectBenchmarkMetrics?.(scene, pair, result);
+              pairResult.benchmarkRows.push({
                 pairName: pair.name,
                 refFile: pair.ref.name,
                 testFile: pair.test.name,
                 refSizeBytes: pair.ref.size,
                 testSizeBytes: pair.test.size,
                 result,
-                paperMetrics,
+                benchmarkMetrics,
                 sceneName: runPlan?.sceneName,
                 referenceFormat: pair.ref.format.replace('.', ''),
                 testFormat: runPlan?.testFormat,

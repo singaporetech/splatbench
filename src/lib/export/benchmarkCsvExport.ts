@@ -1,14 +1,15 @@
 /**
- * Paper CSV export for the respack validator schema.
+ * Benchmark CSV export.
  *
- * This keeps the column order aligned with scripts/validate_paper_readiness.py
- * so app-side batch output can be staged directly for paper-readiness checks.
+ * Writes one row per scene, format, viewpoint, replicate, and test with a fixed
+ * column order, so batch runs from different sessions and machines can be
+ * concatenated and analysed together.
  */
 
 import type { BenchmarkMetrics } from '../../types';
 import type { TestResult } from '../testing/types';
 
-export const PAPER_CSV_HEADERS = [
+export const BENCHMARK_CSV_HEADERS = [
   'timestamp',
   'test_id',
   'replicate',
@@ -52,10 +53,10 @@ export const PAPER_CSV_HEADERS = [
   'canvas_height',
 ] as const;
 
-type PaperCsvHeader = (typeof PAPER_CSV_HEADERS)[number];
-type PaperCsvRow = Record<PaperCsvHeader, string>;
+type BenchmarkCsvHeader = (typeof BENCHMARK_CSV_HEADERS)[number];
+type BenchmarkCsvRow = Record<BenchmarkCsvHeader, string>;
 
-export interface PaperRuntimeInfo {
+export interface BenchmarkRuntimeInfo {
   browserName: string;
   browserVersion: string;
   browserEngine: string;
@@ -66,7 +67,7 @@ export interface PaperRuntimeInfo {
   devicePixelRatio: number;
 }
 
-export interface PaperMetricSnapshot {
+export interface BenchmarkMetricSnapshot {
   reference: BenchmarkMetrics;
   test: BenchmarkMetrics;
   cameraPosition: { x: number; y: number; z: number };
@@ -74,14 +75,14 @@ export interface PaperMetricSnapshot {
   canvasHeight: number;
 }
 
-export interface PaperBatchRowInput {
+export interface BenchmarkBatchRowInput {
   pairName: string;
   refFile: string;
   testFile: string;
   refSizeBytes?: number;
   testSizeBytes?: number;
   result: TestResult;
-  paperMetrics?: PaperMetricSnapshot;
+  benchmarkMetrics?: BenchmarkMetricSnapshot;
   sceneName?: string;
   referenceFormat?: string;
   testFormat?: string;
@@ -90,25 +91,25 @@ export interface PaperBatchRowInput {
   replicate?: string;
 }
 
-export interface PaperBatchResultInput {
+export interface BenchmarkBatchResultInput {
   pairName: string;
   refFile: string;
   testFile: string;
   refSizeBytes?: number;
   testSizeBytes?: number;
   results: TestResult[];
-  paperMetricsByTestId?: Record<string, PaperMetricSnapshot>;
-  paperRows?: PaperBatchRowInput[];
+  benchmarkMetricsByTestId?: Record<string, BenchmarkMetricSnapshot>;
+  benchmarkRows?: BenchmarkBatchRowInput[];
 }
 
-interface NormalizedPaperRowInput {
+interface NormalizedBenchmarkRowInput {
   pairName: string;
   refFile: string;
   testFile: string;
   refSizeBytes?: number;
   testSizeBytes?: number;
   result: TestResult;
-  paperMetrics?: PaperMetricSnapshot;
+  benchmarkMetrics?: BenchmarkMetricSnapshot;
   sceneName?: string;
   referenceFormat?: string;
   testFormat?: string;
@@ -198,17 +199,17 @@ function csvCell(value: string): string {
   return `"${value.replace(/"/gu, '""')}"`;
 }
 
-function normalizePaperRows(batchResults: PaperBatchResultInput[]): NormalizedPaperRowInput[] {
+function normalizeBenchmarkRows(batchResults: BenchmarkBatchResultInput[]): NormalizedBenchmarkRowInput[] {
   return batchResults.flatMap((pair) => {
-    if (pair.paperRows && pair.paperRows.length > 0) {
-      return pair.paperRows.map((row) => ({
+    if (pair.benchmarkRows && pair.benchmarkRows.length > 0) {
+      return pair.benchmarkRows.map((row) => ({
         pairName: row.pairName,
         refFile: row.refFile,
         testFile: row.testFile,
         refSizeBytes: row.refSizeBytes,
         testSizeBytes: row.testSizeBytes,
         result: row.result,
-        paperMetrics: row.paperMetrics,
+        benchmarkMetrics: row.benchmarkMetrics,
         sceneName: row.sceneName,
         referenceFormat: row.referenceFormat,
         testFormat: row.testFormat,
@@ -225,14 +226,14 @@ function normalizePaperRows(batchResults: PaperBatchResultInput[]): NormalizedPa
       refSizeBytes: pair.refSizeBytes,
       testSizeBytes: pair.testSizeBytes,
       result,
-      paperMetrics: pair.paperMetricsByTestId?.[result.testId],
+      benchmarkMetrics: pair.benchmarkMetricsByTestId?.[result.testId],
     }));
   });
 }
 
 function getBrowserInfoFromUserAgent(
   userAgent: string,
-): Pick<PaperRuntimeInfo, 'browserName' | 'browserVersion' | 'browserEngine'> {
+): Pick<BenchmarkRuntimeInfo, 'browserName' | 'browserVersion' | 'browserEngine'> {
   if (userAgent.includes('Chrome/') && !userAgent.includes('Edg/')) {
     return {
       browserName: 'Chrome',
@@ -268,7 +269,7 @@ function getBrowserInfoFromUserAgent(
   };
 }
 
-export function getPaperRuntimeInfo(): PaperRuntimeInfo {
+export function getBenchmarkRuntimeInfo(): BenchmarkRuntimeInfo {
   const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
   const browserInfo = getBrowserInfoFromUserAgent(userAgent);
 
@@ -296,16 +297,16 @@ export function getPaperRuntimeInfo(): PaperRuntimeInfo {
   };
 }
 
-function createPaperCsvRow(
-  input: NormalizedPaperRowInput,
-  runtimeInfo: PaperRuntimeInfo,
-): PaperCsvRow {
+function createBenchmarkCsvRow(
+  input: NormalizedBenchmarkRowInput,
+  runtimeInfo: BenchmarkRuntimeInfo,
+): BenchmarkCsvRow {
   const sceneName = input.sceneName ?? inferSceneName(input.pairName, input.refFile, input.testFile);
   const referenceFormat = input.referenceFormat ?? extensionWithoutDot(input.refFile);
   const testFormat = input.testFormat ?? inferTestFormat(input.pairName, input.testFile);
   const viewpointName = input.viewpointName ?? inferViewpoint(input.pairName, input.testFile);
   const replicate = input.replicate ?? inferReplicate(input.pairName, input.testFile);
-  const metrics = input.paperMetrics;
+  const metrics = input.benchmarkMetrics;
   const referenceSizeMB = fileSizeMB(input.refSizeBytes, metrics?.reference);
   const testSizeMB = fileSizeMB(input.testSizeBytes, metrics?.test);
   const compressionRatio =
@@ -366,25 +367,25 @@ function createPaperCsvRow(
   };
 }
 
-export function createPaperCsvRows(
-  batchResults: PaperBatchResultInput[],
-  runtimeInfo: PaperRuntimeInfo = getPaperRuntimeInfo(),
-): PaperCsvRow[] {
-  return normalizePaperRows(batchResults).map((row) => createPaperCsvRow(row, runtimeInfo));
+export function createBenchmarkCsvRows(
+  batchResults: BenchmarkBatchResultInput[],
+  runtimeInfo: BenchmarkRuntimeInfo = getBenchmarkRuntimeInfo(),
+): BenchmarkCsvRow[] {
+  return normalizeBenchmarkRows(batchResults).map((row) => createBenchmarkCsvRow(row, runtimeInfo));
 }
 
-export function exportPaperBatchResultsToCSV(
-  batchResults: PaperBatchResultInput[],
-  runtimeInfo?: PaperRuntimeInfo,
+export function exportBenchmarkBatchResultsToCSV(
+  batchResults: BenchmarkBatchResultInput[],
+  runtimeInfo?: BenchmarkRuntimeInfo,
 ): string {
-  const rows = createPaperCsvRows(batchResults, runtimeInfo);
+  const rows = createBenchmarkCsvRows(batchResults, runtimeInfo);
   return [
-    PAPER_CSV_HEADERS.join(','),
-    ...rows.map((row) => PAPER_CSV_HEADERS.map((header) => csvCell(row[header])).join(',')),
+    BENCHMARK_CSV_HEADERS.join(','),
+    ...rows.map((row) => BENCHMARK_CSV_HEADERS.map((header) => csvCell(row[header])).join(',')),
   ].join('\n');
 }
 
-export function downloadPaperCSV(csv: string, filename?: string): void {
+export function downloadBenchmarkCSV(csv: string, filename?: string): void {
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

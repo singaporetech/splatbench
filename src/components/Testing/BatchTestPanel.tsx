@@ -5,13 +5,13 @@ import type { GSFile } from '../../types';
 import { useBatchFolder } from '../../hooks/useBatchFolder';
 import type { FilePair } from '../../hooks/useBatchFolder';
 import {
-  createPaperRunPlans,
-  parsePaperPairName,
+  createBenchmarkRunPlans,
+  parseBenchmarkPairName,
   useBatchTestRunner,
 } from '../../hooks/useBatchTestRunner';
 import type { BatchPairResult } from '../../hooks/useBatchTestRunner';
 import { getTests } from '../../lib/testing/registry';
-import { downloadPaperCSV, exportPaperBatchResultsToCSV } from '../../lib/export/paperCsvExport';
+import { downloadBenchmarkCSV, exportBenchmarkBatchResultsToCSV } from '../../lib/export/benchmarkCsvExport';
 import { InfoTooltip } from '../UI/InfoTooltip';
 
 interface BatchTestPanelProps {
@@ -57,7 +57,7 @@ function PairCard({ pair, index }: { pair: FilePair; index: number }) {
 }
 
 function formatResultRunLabel(result: BatchPairResult, index: number): string | null {
-  const row = result.paperRows[index];
+  const row = result.benchmarkRows[index];
   if (!row) return null;
 
   const parts: string[] = [];
@@ -98,7 +98,7 @@ function BatchResultCard({ result }: { result: BatchPairResult }) {
   const total = result.results.length;
   const allPassed = passed === total;
   const borderColor = allPassed ? '#BEFF74' : '#FF575F';
-  const hasPaperMetadata = result.paperRows.some((row) => row.viewpointName || row.replicate);
+  const hasBenchmarkMetadata = result.benchmarkRows.some((row) => row.viewpointName || row.replicate);
 
   return (
     <div
@@ -127,7 +127,7 @@ function BatchResultCard({ result }: { result: BatchPairResult }) {
         <span style={{ color: '#555' }}>vs</span>
         <span style={{ color: '#FFACBF' }}>{result.testFile}</span>
       </div>
-      {hasPaperMetadata && (
+      {hasBenchmarkMetadata && (
         <div className="text-xs mb-2" style={{ color: '#888' }}>
           Benchmark matrix export data collected for this pair.
         </div>
@@ -282,19 +282,19 @@ export function BatchTestPanel({
     onBatchRunningChange,
   ]);
 
-  const handleDownloadPaperCSV = useCallback(() => {
-    const csv = exportPaperBatchResultsToCSV(batchRunner.pairResults);
-    downloadPaperCSV(csv);
+  const handleDownloadBenchmarkCSV = useCallback(() => {
+    const csv = exportBenchmarkBatchResultsToCSV(batchRunner.pairResults);
+    downloadBenchmarkCSV(csv);
   }, [batchRunner.pairResults]);
 
   const isRunning = batchRunner.status === 'running';
   const isDone = batchRunner.status === 'done' || batchRunner.status === 'cancelled';
   const canRun = folder.pairs.length > 0 && !isRunning;
-  const allPairsPaperReady =
-    folder.pairs.length > 0 && folder.pairs.every((pair) => parsePaperPairName(pair.name) !== null);
+  const allPairsBenchmarkReady =
+    folder.pairs.length > 0 && folder.pairs.every((pair) => parseBenchmarkPairName(pair.name) !== null);
   const registeredTestCount = getTests().length;
-  const expectedPaperRows =
-    folder.pairs.reduce((sum, pair) => sum + (createPaperRunPlans(pair.name)?.length ?? 0), 0) *
+  const expectedBenchmarkRows =
+    folder.pairs.reduce((sum, pair) => sum + (createBenchmarkRunPlans(pair.name)?.length ?? 0), 0) *
     registeredTestCount;
   const progressLabel = batchRunner.totalPairs === folder.pairs.length ? 'pair' : 'step';
 
@@ -456,7 +456,7 @@ export function BatchTestPanel({
         </div>
       </div>
 
-      {allPairsPaperReady && (
+      {allPairsBenchmarkReady && (
         <div
           className="mb-4 p-3 rounded-lg text-xs"
           style={{ backgroundColor: 'rgba(190, 255, 116, 0.08)', border: '1px solid #44444480' }}
@@ -465,7 +465,7 @@ export function BatchTestPanel({
             Benchmark matrix batch detected
           </div>
           <div style={{ color: '#888' }}>
-            This folder will produce {expectedPaperRows} CSV rows if all {registeredTestCount} tests complete for every viewpoint and replicate.
+            This folder will produce {expectedBenchmarkRows} CSV rows if all {registeredTestCount} tests complete for every viewpoint and replicate.
           </div>
         </div>
       )}
@@ -575,8 +575,8 @@ export function BatchTestPanel({
                 cursor: canRun ? 'pointer' : 'not-allowed',
               }}
             >
-              {allPairsPaperReady
-                ? `Run Benchmark Matrix (${folder.pairs.length} pairs, ${expectedPaperRows} CSV rows)`
+              {allPairsBenchmarkReady
+                ? `Run Benchmark Matrix (${folder.pairs.length} pairs, ${expectedBenchmarkRows} CSV rows)`
                 : `Run Batch Tests (${folder.pairs.length} pair${folder.pairs.length > 1 ? 's' : ''})`}
             </button>
           )}
@@ -641,7 +641,7 @@ export function BatchTestPanel({
           </div>
 
           <button
-            onClick={handleDownloadPaperCSV}
+            onClick={handleDownloadBenchmarkCSV}
             className="w-full mt-4 py-2 text-xs rounded-lg transition-colors"
             style={{ backgroundColor: '#BEFF74', color: '#1F1F1F' }}
           >
