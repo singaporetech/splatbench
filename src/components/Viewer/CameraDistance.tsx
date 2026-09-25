@@ -13,10 +13,7 @@ export function CameraDistance({ context }: CameraDistanceProps) {
   const [distance, setDistance] = useState<number>(0);
 
   useEffect(() => {
-    if (!context) {
-      setDistance(0);
-      return;
-    }
+    if (!context) return;
 
     const interval = setInterval(() => {
       const position = context.camera.position;

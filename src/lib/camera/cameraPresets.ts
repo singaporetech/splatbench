@@ -300,6 +300,18 @@ export function estimateSceneRadiusFromMesh(
 }
 
 /**
+ * The OrbitControls members the preset helpers use; the underscored fields are
+ * internal damping state that three.js does not type.
+ */
+export interface PresetControls {
+  target: THREE.Vector3;
+  update: () => void;
+  _sphericalDelta?: { set: (radius: number, phi: number, theta: number) => unknown };
+  _panOffset?: { set: (x: number, y: number, z: number) => unknown };
+  _scale?: number;
+}
+
+/**
  * Reset accumulated damping momentum on OrbitControls.
  *
  * When enableDamping is true, OrbitControls stores angular velocity in
@@ -307,7 +319,7 @@ export function estimateSceneRadiusFromMesh(
  * must be cleared when teleporting the camera to a preset, otherwise the
  * residual momentum causes the view to drift immediately after switching.
  */
-export function resetControlsMomentum(controls: any /* OrbitControls */): void {
+export function resetControlsMomentum(controls: PresetControls): void {
   // clear rotational momentum; theta is azimuth and phi is polar
   if (controls._sphericalDelta) {
     controls._sphericalDelta.set(0, 0, 0);
@@ -324,7 +336,7 @@ export function resetControlsMomentum(controls: any /* OrbitControls */): void {
 
 export function applyCameraPreset(
   camera: THREE.PerspectiveCamera,
-  controls: any, // OrbitControls
+  controls: PresetControls,
   preset: ViewpointPreset
 ): void {
   // clear damping momentum before applying a new pose
@@ -351,7 +363,7 @@ export function applyCameraPreset(
 
 export function captureCurrentView(
   camera: THREE.PerspectiveCamera,
-  controls: any
+  controls: Pick<PresetControls, 'target'>
 ): ViewpointPreset {
   return {
     id: `custom_${Date.now()}`,

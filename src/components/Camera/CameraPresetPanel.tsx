@@ -2,10 +2,10 @@ import { useRef, useState } from 'react';
 import type { ViewpointPreset } from '../../lib/camera/cameraPresets';
 import {
   STANDARD_VIEWPOINTS,
+  applyCameraPreset,
   captureCurrentView,
   getScenePresets,
   parseViewpointsJSON,
-  resetControlsMomentum,
   serializeViewpoints,
 } from '../../lib/camera/cameraPresets';
 import type { SparkViewerContext } from '../../types';
@@ -38,24 +38,8 @@ export function CameraPresetPanel({
     if (!viewerContext) return;
     
     const { camera, controls } = viewerContext;
-    
-    resetControlsMomentum(controls);
-    
-    const targetPos = {
-      x: preset.position.x,
-      y: preset.position.y,
-      z: preset.position.z,
-    };
-    
-    camera.position.set(targetPos.x, targetPos.y, targetPos.z);
-    controls.target.set(preset.target.x, preset.target.y, preset.target.z);
-    
-    if (preset.fov) {
-      camera.fov = preset.fov;
-      camera.updateProjectionMatrix();
-    }
-    
-    controls.update();
+
+    applyCameraPreset(camera, controls, preset);
     
     setActivePreset(preset.id);
     

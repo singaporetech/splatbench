@@ -100,7 +100,7 @@ export function useGSLoader() {
           `This may be due to incompatible .ksplat format variant. ` +
           `Try converting with a different tool or use .splat or .spz format instead.`
         );
-        (formatError as any).originalError = e;
+        Object.assign(formatError, { originalError: e });
         setError(formatError);
       } else {
         setError(error);

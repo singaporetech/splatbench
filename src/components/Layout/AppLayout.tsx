@@ -226,7 +226,7 @@ export function AppLayout() {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [fileA, fileB, contextA, contextB, isBatchTesting, imageQuality.isComparing, imageQuality.metrics.psnr]);
+  }, [fileA, fileB, contextA, contextB, isBatchTesting, imageQuality.isComparing, imageQuality.metrics.psnr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // resolve batch-load promises when viewer contexts become ready
   const contextResolverA = useRef<((ctx: SparkViewerContext) => void) | null>(null);
@@ -387,7 +387,7 @@ export function AppLayout() {
       clearTimeout(timeoutId);
       window.removeEventListener('resize', updateResolution);
     };
-  }, [fileA, fileB]);
+  }, [fileA, fileB]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex flex-col bg-gray-900" style={{ height: '100dvh' }}>

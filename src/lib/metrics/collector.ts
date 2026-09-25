@@ -54,7 +54,7 @@ export class MetricsCollector {
   getMemory(): number {
     // Chrome-only API
     if ('memory' in performance) {
-      const memory = (performance as any).memory;
+      const memory = (performance as Performance & { memory: { usedJSHeapSize: number } }).memory;
       return memory.usedJSHeapSize / 1024 / 1024;
     }
     return 0;
