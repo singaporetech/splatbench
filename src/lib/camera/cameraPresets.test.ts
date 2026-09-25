@@ -8,8 +8,11 @@ import {
   getScenePresets,
   getScenePresetsForRadius,
   lookupSceneRadius,
+  parseViewpointsJSON,
   resolveSceneRadius,
+  serializeViewpoints,
 } from './cameraPresets';
+import type { ViewpointPreset } from './cameraPresets';
 
 /** Distance of a preset from the origin, matching the CSV's camera_distance. */
 function distanceOf(presets: ReturnType<typeof getScenePresets>, viewpointId: string): number {
@@ -225,5 +228,174 @@ describe('estimateSceneRadiusFromMesh', () => {
     const shared = getScenePresetsForRadius(resolveSceneRadius('stump', radius).radius);
     expect(shared).toEqual(getScenePresets('stump', radius));
     expect(distanceOf(shared, 'front')).toBeCloseTo(3.5 * radius, 10);
+  });
+});
+
+describe('viewpoint files', () => {
+  const saved: ViewpointPreset[] = [
+    {
+      id: 'custom_a',
+      name: 'Custom 1',
+      description: 'Saved from the current camera pose',
+      position: { x: 1.5, y: -2.25, z: 3.125 },
+      target: { x: 0, y: 0.5, z: 0 },
+      fov: 50,
+    },
+    {
+      id: 'custom_b',
+      name: 'Custom 2',
+      description: 'Saved from the current camera pose',
+      position: { x: -4, y: 0, z: 0 },
+      target: { x: 0, y: 0, z: 0 },
+    },
+  ];
+
+  it('round-trips poses and fov through serialize and parse', () => {
+    const parsed = parseViewpointsJSON(serializeViewpoints('garden', saved));
+
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0].name).toBe('Custom 1');
+    expect(parsed[0].position).toEqual(saved[0].position);
+    expect(parsed[0].target).toEqual(saved[0].target);
+    expect(parsed[0].fov).toBe(50);
+    expect(parsed[1].position).toEqual(saved[1].position);
+    expect(parsed[1].fov).toBeUndefined();
+  });
+
+  it('omits fov rather than writing a null', () => {
+    const written = JSON.parse(serializeViewpoints('garden', saved));
+
+    expect(written.name).toBe('garden');
+    expect(written.viewpoints[0]).toEqual({
+      name: 'Custom 1',
+      position: [1.5, -2.25, 3.125],
+      target: [0, 0.5, 0],
+      fov: 50,
+    });
+    expect('fov' in written.viewpoints[1]).toBe(false);
+  });
+
+  it('mints a fresh unique id for every imported viewpoint', () => {
+    const parsed = parseViewpointsJSON(serializeViewpoints('garden', saved));
+    const again = parseViewpointsJSON(serializeViewpoints('garden', saved));
+    const ids = [...parsed, ...again].map((preset) => preset.id);
+
+    expect(new Set(ids).size).toBe(ids.length);
+    // an imported viewpoint never claims the id it was exported under
+    expect(ids).not.toContain('custom_a');
+  });
+
+  it('defaults an omitted target to the origin', () => {
+    const parsed = parseViewpointsJSON(
+      JSON.stringify({ name: 'x', viewpoints: [{ name: 'v', position: [1, 0, 0] }] }),
+    );
+
+    expect(parsed[0].target).toEqual({ x: 0, y: 0, z: 0 });
+  });
+
+  it('rejects non-JSON input', () => {
+    expect(() => parseViewpointsJSON('not json')).toThrow('Not valid JSON');
+  });
+
+  it('rejects a top-level array', () => {
+    expect(() => parseViewpointsJSON('[]')).toThrow('Viewpoint file must be a JSON object');
+  });
+
+  it('rejects a missing name', () => {
+    expect(() => parseViewpointsJSON(JSON.stringify({ viewpoints: [] }))).toThrow(
+      'Viewpoint file needs a non-empty "name" string',
+    );
+  });
+
+  it('rejects a missing viewpoints array', () => {
+    expect(() => parseViewpointsJSON(JSON.stringify({ name: 'x' }))).toThrow(
+      'Viewpoint file needs a "viewpoints" array',
+    );
+  });
+
+  it('rejects an empty viewpoints array', () => {
+    expect(() => parseViewpointsJSON(JSON.stringify({ name: 'x', viewpoints: [] }))).toThrow(
+      'Viewpoint file needs between 1 and 50 viewpoints, got 0',
+    );
+  });
+
+  it('rejects 51 viewpoints', () => {
+    const viewpoints = Array.from({ length: 51 }, (_, i) => ({
+      name: `v${i}`,
+      position: [0, 0, i],
+    }));
+
+    expect(() => parseViewpointsJSON(JSON.stringify({ name: 'x', viewpoints }))).toThrow(
+      'Viewpoint file needs between 1 and 50 viewpoints, got 51',
+    );
+  });
+
+  it('names the offending viewpoint index for a missing position', () => {
+    expect(() =>
+      parseViewpointsJSON(
+        JSON.stringify({
+          name: 'x',
+          viewpoints: [{ name: 'a', position: [0, 0, 0] }, { name: 'b' }],
+        }),
+      ),
+    ).toThrow('Viewpoint 1: missing "position"');
+  });
+
+  it('names the offending viewpoint index for a malformed position', () => {
+    expect(() =>
+      parseViewpointsJSON(
+        JSON.stringify({
+          name: 'x',
+          viewpoints: [{ name: 'a', position: [0, 0, 0] }, { name: 'b', position: [1, 2] }],
+        }),
+      ),
+    ).toThrow('Viewpoint 1: "position" must have exactly 3 numbers, got 2');
+  });
+
+  it('names the offending viewpoint index for a non-array position', () => {
+    expect(() =>
+      parseViewpointsJSON(
+        JSON.stringify({ name: 'x', viewpoints: [{ name: 'a', position: 'nope' }] }),
+      ),
+    ).toThrow('Viewpoint 0: "position" must be an array of 3 numbers');
+  });
+
+  it('names the offending viewpoint index for a non-finite number', () => {
+    expect(() =>
+      parseViewpointsJSON(
+        JSON.stringify({
+          name: 'x',
+          viewpoints: [{ name: 'a', position: [0, 0, 0], target: [0, null, 0] }],
+        }),
+      ),
+    ).toThrow('Viewpoint 0: "target" contains a non-finite number');
+  });
+
+  it('names the offending viewpoint index for a missing name', () => {
+    expect(() =>
+      parseViewpointsJSON(JSON.stringify({ name: 'x', viewpoints: [{ position: [0, 0, 0] }] })),
+    ).toThrow('Viewpoint 0: needs a non-empty "name" string');
+  });
+
+  it('rejects an out-of-range fov', () => {
+    expect(() =>
+      parseViewpointsJSON(
+        JSON.stringify({
+          name: 'x',
+          viewpoints: [{ name: 'a', position: [0, 0, 0], fov: 180 }],
+        }),
+      ),
+    ).toThrow('Viewpoint 0: "fov" must be between 0 and 180 degrees');
+  });
+
+  it('rejects a non-numeric fov', () => {
+    expect(() =>
+      parseViewpointsJSON(
+        JSON.stringify({
+          name: 'x',
+          viewpoints: [{ name: 'a', position: [0, 0, 0], fov: '50' }],
+        }),
+      ),
+    ).toThrow('Viewpoint 0: "fov" must be a number');
   });
 });

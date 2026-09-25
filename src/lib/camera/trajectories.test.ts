@@ -10,6 +10,8 @@ import {
   generateSeededTrajectory,
   generateCustomTrajectory,
   parseCustomTrajectoryJSON,
+  serializeCustomTrajectory,
+  TrajectoryRecorder,
   generateTrajectory,
   mulberry32,
   DEFAULT_ORBIT_CONFIG,
@@ -17,6 +19,7 @@ import {
   DEFAULT_PAN_CONFIG,
   DEFAULT_SEEDED_CONFIG,
   type CustomConfig,
+  type CustomPoint,
 } from './trajectories';
 import { MetricsCollector } from '../metrics/collector';
 
@@ -630,5 +633,140 @@ describe('parseCustomTrajectoryJSON', () => {
         }),
       ),
     ).toThrow('Frame 1: "target" must have exactly 3 numbers, got 2');
+  });
+});
+
+// ─── Path Recording Tests ────────────────────────────────────────────────────
+
+describe('serializeCustomTrajectory', () => {
+  const points: CustomPoint[] = [
+    { position: { x: 1, y: 2, z: 3 }, target: { x: 0, y: 0, z: 0 } },
+    { position: { x: 4, y: 5, z: 6 }, target: { x: 0, y: 1, z: 0 } },
+  ];
+
+  it('emits a file the parser accepts, point for point', () => {
+    const config = parseCustomTrajectoryJSON(serializeCustomTrajectory('saved', points));
+
+    expect(config.name).toBe('saved');
+    expect(config.points).toEqual(points);
+  });
+
+  it('keeps 6 decimals of precision', () => {
+    const config = parseCustomTrajectoryJSON(
+      serializeCustomTrajectory('rounded', [
+        { position: { x: 1 / 3, y: 0, z: 0 }, target: { x: 0, y: 0, z: 0 } },
+        { position: { x: 2 / 3, y: 0, z: 0 }, target: { x: 0, y: 0, z: 0 } },
+      ]),
+    );
+
+    expect(config.points[0].position.x).toBeCloseTo(1 / 3, 6);
+    expect(config.points[1].position.x).toBeCloseTo(2 / 3, 6);
+  });
+
+  it('writes vectors as arrays, with an explicit target on every frame', () => {
+    const written = JSON.parse(serializeCustomTrajectory('saved', points));
+    expect(written.frames[0]).toEqual({ position: [1, 2, 3], target: [0, 0, 0] });
+  });
+});
+
+describe('TrajectoryRecorder', () => {
+  const origin = { x: 0, y: 0, z: 0 };
+
+  it('records the first call and then every sampleEvery-th one', () => {
+    const recorder = new TrajectoryRecorder({ sampleEvery: 4 });
+    for (let i = 0; i < 12; i++) {
+      recorder.sample({ x: i, y: 0, z: 0 }, origin);
+    }
+
+    expect(recorder.frameCount).toBe(3);
+    expect(recorder.points.map((point) => point.position.x)).toEqual([0, 4, 8]);
+  });
+
+  it('records every call at sampleEvery 1', () => {
+    const recorder = new TrajectoryRecorder({ sampleEvery: 1 });
+    for (let i = 0; i < 5; i++) {
+      recorder.sample({ x: i, y: 0, z: 0 }, origin);
+    }
+
+    expect(recorder.frameCount).toBe(5);
+  });
+
+  it('drops a sample identical to the last recorded one', () => {
+    const recorder = new TrajectoryRecorder({ sampleEvery: 1 });
+    recorder.sample({ x: 1, y: 1, z: 1 }, origin);
+    recorder.sample({ x: 1, y: 1, z: 1 }, origin);
+    recorder.sample({ x: 1, y: 1, z: 1 }, origin);
+
+    expect(recorder.frameCount).toBe(1);
+  });
+
+  it('treats a moved target as a new pose', () => {
+    const recorder = new TrajectoryRecorder({ sampleEvery: 1 });
+    recorder.sample({ x: 1, y: 1, z: 1 }, origin);
+    recorder.sample({ x: 1, y: 1, z: 1 }, { x: 0, y: 2, z: 0 });
+
+    expect(recorder.frameCount).toBe(2);
+  });
+
+  it('stops accepting at maxFrames and reports itself full', () => {
+    const recorder = new TrajectoryRecorder({ sampleEvery: 1, maxFrames: 3 });
+    for (let i = 0; i < 20; i++) {
+      recorder.sample({ x: i, y: 0, z: 0 }, origin);
+    }
+
+    expect(recorder.full).toBe(true);
+    expect(recorder.frameCount).toBe(3);
+    expect(recorder.points.map((point) => point.position.x)).toEqual([0, 1, 2]);
+  });
+
+  it('is not full before the cap is reached', () => {
+    const recorder = new TrajectoryRecorder({ sampleEvery: 1, maxFrames: 3 });
+    recorder.sample({ x: 0, y: 0, z: 0 }, origin);
+
+    expect(recorder.full).toBe(false);
+  });
+
+  it('caps at 600 frames by default', () => {
+    const recorder = new TrajectoryRecorder({ sampleEvery: 1 });
+    for (let i = 0; i < 700; i++) {
+      recorder.sample({ x: i, y: 0, z: 0 }, origin);
+    }
+
+    expect(recorder.frameCount).toBe(600);
+  });
+
+  it('hands out copies, not live references', () => {
+    const recorder = new TrajectoryRecorder({ sampleEvery: 1 });
+    recorder.sample({ x: 1, y: 2, z: 3 }, origin);
+
+    const first = recorder.points;
+    first[0].position.x = 99;
+
+    expect(recorder.points[0].position.x).toBe(1);
+  });
+
+  it('round-trips a recorded path through the parser', () => {
+    const recorder = new TrajectoryRecorder({ sampleEvery: 4 });
+    // a camera arcing around the origin, sampled the way a render loop would
+    for (let frame = 0; frame < 120; frame++) {
+      const angle = (frame / 120) * Math.PI;
+      recorder.sample({ x: 5 * Math.sin(angle), y: 1, z: 5 * Math.cos(angle) }, origin);
+    }
+
+    const recorded = recorder.points;
+    const config = parseCustomTrajectoryJSON(
+      serializeCustomTrajectory('recorded-path', recorded),
+    );
+
+    expect(config.name).toBe('recorded-path');
+    expect(config.points).toHaveLength(recorded.length);
+    config.points.forEach((point, i) => {
+      expect(point.position.x).toBeCloseTo(recorded[i].position.x, 6);
+      expect(point.position.y).toBeCloseTo(recorded[i].position.y, 6);
+      expect(point.position.z).toBeCloseTo(recorded[i].position.z, 6);
+      expect(point.target).toEqual(recorded[i].target);
+    });
+
+    expect(generateCustomTrajectory(config).keyframes).toHaveLength(recorded.length);
   });
 });

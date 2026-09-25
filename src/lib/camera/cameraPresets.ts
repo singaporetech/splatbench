@@ -371,6 +371,156 @@ export function captureCurrentView(
   };
 }
 
+// ─── Viewpoint Files ─────────────────────────────────────────────────────────
+
+/** Viewpoint-count bounds for a saved viewpoint file. */
+export const VIEWPOINTS_MIN_COUNT = 1;
+export const VIEWPOINTS_MAX_COUNT = 50;
+
+/** Decimals kept when a pose is written to a file. */
+const VIEWPOINT_FILE_PRECISION = 6;
+
+/** Monotonic suffix so ids stay unique inside a single import. */
+let viewpointIdCounter = 0;
+
+function nextViewpointId(): string {
+  viewpointIdCounter += 1;
+  return `custom_${Date.now().toString(36)}_${viewpointIdCounter}`;
+}
+
+function vec3ToArray(vec: { x: number; y: number; z: number }): [number, number, number] {
+  return [
+    roundToPrecision(vec.x, VIEWPOINT_FILE_PRECISION),
+    roundToPrecision(vec.y, VIEWPOINT_FILE_PRECISION),
+    roundToPrecision(vec.z, VIEWPOINT_FILE_PRECISION),
+  ];
+}
+
+/**
+ * Write viewpoints out in the same array-per-vector shape a custom path file
+ * uses, so the two file formats read alike.
+ *
+ *   { "name": "garden",
+ *     "viewpoints": [ { "name": "Custom 1", "position": [x,y,z],
+ *                       "target": [x,y,z], "fov": 50 }, ... ] }
+ */
+export function serializeViewpoints(name: string, presets: ViewpointPreset[]): string {
+  return JSON.stringify(
+    {
+      name,
+      viewpoints: presets.map(preset => {
+        const entry: Record<string, unknown> = {
+          name: preset.name,
+          position: vec3ToArray(preset.position),
+          target: vec3ToArray(preset.target),
+        };
+        if (preset.fov !== undefined) {
+          entry.fov = roundToPrecision(preset.fov, VIEWPOINT_FILE_PRECISION);
+        }
+        return entry;
+      }),
+    },
+    null,
+    2,
+  );
+}
+
+function parseViewpointVec3(
+  value: unknown,
+  index: number,
+  field: 'position' | 'target',
+): { x: number; y: number; z: number } {
+  if (!Array.isArray(value)) {
+    throw new Error(`Viewpoint ${index}: "${field}" must be an array of 3 numbers`);
+  }
+  if (value.length !== 3) {
+    throw new Error(
+      `Viewpoint ${index}: "${field}" must have exactly 3 numbers, got ${value.length}`,
+    );
+  }
+  for (const component of value) {
+    if (typeof component !== 'number' || !Number.isFinite(component)) {
+      throw new Error(`Viewpoint ${index}: "${field}" contains a non-finite number`);
+    }
+  }
+  return { x: value[0], y: value[1], z: value[2] };
+}
+
+/**
+ * Parse and validate a saved viewpoint file. `target` defaults to the origin
+ * and `fov` to the camera's own. Errors name the first offending viewpoint
+ * index. Ids are minted on import, so importing a file twice adds two
+ * independent entries.
+ */
+export function parseViewpointsJSON(text: string): ViewpointPreset[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('Not valid JSON');
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Viewpoint file must be a JSON object');
+  }
+
+  const root = parsed as Record<string, unknown>;
+
+  if (typeof root.name !== 'string' || root.name.trim().length === 0) {
+    throw new Error('Viewpoint file needs a non-empty "name" string');
+  }
+
+  if (!Array.isArray(root.viewpoints)) {
+    throw new Error('Viewpoint file needs a "viewpoints" array');
+  }
+
+  const entries = root.viewpoints;
+  if (entries.length < VIEWPOINTS_MIN_COUNT || entries.length > VIEWPOINTS_MAX_COUNT) {
+    throw new Error(
+      `Viewpoint file needs between ${VIEWPOINTS_MIN_COUNT} and ${VIEWPOINTS_MAX_COUNT} viewpoints, got ${entries.length}`,
+    );
+  }
+
+  return entries.map((raw, i) => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      throw new Error(`Viewpoint ${i}: each viewpoint must be an object`);
+    }
+    const entry = raw as Record<string, unknown>;
+
+    if (typeof entry.name !== 'string' || entry.name.trim().length === 0) {
+      throw new Error(`Viewpoint ${i}: needs a non-empty "name" string`);
+    }
+
+    if (entry.position === undefined) {
+      throw new Error(`Viewpoint ${i}: missing "position"`);
+    }
+
+    let fov: number | undefined;
+    if (entry.fov !== undefined) {
+      if (typeof entry.fov !== 'number' || !Number.isFinite(entry.fov)) {
+        throw new Error(`Viewpoint ${i}: "fov" must be a number`);
+      }
+      if (entry.fov <= 0 || entry.fov >= 180) {
+        throw new Error(`Viewpoint ${i}: "fov" must be between 0 and 180 degrees`);
+      }
+      fov = entry.fov;
+    }
+
+    const preset: ViewpointPreset = {
+      id: nextViewpointId(),
+      name: entry.name,
+      description: 'Imported viewpoint',
+      position: parseViewpointVec3(entry.position, i, 'position'),
+      target:
+        entry.target === undefined
+          ? { x: 0, y: 0, z: 0 }
+          : parseViewpointVec3(entry.target, i, 'target'),
+    };
+
+    return fov === undefined ? preset : { ...preset, fov };
+  });
+}
+
 export function getCameraDistance(camera: THREE.PerspectiveCamera): number {
   return camera.position.length();
 }

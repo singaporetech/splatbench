@@ -448,6 +448,117 @@ export function parseCustomTrajectoryJSON(text: string): CustomConfig {
   };
 }
 
+// ─── Custom Path Recording ───────────────────────────────────────────────────
+
+/** Decimals kept when a pose is written to a path file. */
+const CUSTOM_FILE_PRECISION = 6;
+
+/** Calls per recorded frame; about 15 Hz at 60 fps. */
+export const RECORDER_SAMPLE_EVERY = 4;
+
+function roundComponent(value: number): number {
+  const scale = 10 ** CUSTOM_FILE_PRECISION;
+  return Math.round(value * scale) / scale;
+}
+
+/**
+ * Write points out in the shape `parseCustomTrajectoryJSON` reads, so a
+ * recorded path and a hand-written one are the same kind of file.
+ */
+export function serializeCustomTrajectory(name: string, points: CustomPoint[]): string {
+  return JSON.stringify(
+    {
+      name,
+      frames: points.map(point => ({
+        position: [
+          roundComponent(point.position.x),
+          roundComponent(point.position.y),
+          roundComponent(point.position.z),
+        ],
+        target: [
+          roundComponent(point.target.x),
+          roundComponent(point.target.y),
+          roundComponent(point.target.z),
+        ],
+      })),
+    },
+    null,
+    2,
+  );
+}
+
+export interface TrajectoryRecorderOptions {
+  /** Record one frame every this many `sample` calls. */
+  sampleEvery?: number;
+  /** Hard cap on recorded frames, matching what the parser accepts. */
+  maxFrames?: number;
+}
+
+/**
+ * Accumulates camera poses into a replayable custom path. The caller drives it
+ * from its own loop; consecutive identical poses are dropped, so a camera left
+ * still costs one frame.
+ */
+export class TrajectoryRecorder {
+  private readonly sampleEvery: number;
+  private readonly maxFrames: number;
+  private callCount = 0;
+  private recorded: CustomPoint[] = [];
+
+  constructor(options: TrajectoryRecorderOptions = {}) {
+    this.sampleEvery = Math.max(1, Math.floor(options.sampleEvery ?? RECORDER_SAMPLE_EVERY));
+    this.maxFrames = Math.max(1, Math.floor(options.maxFrames ?? CUSTOM_MAX_FRAMES));
+  }
+
+  /** Recorded frames so far. */
+  get frameCount(): number {
+    return this.recorded.length;
+  }
+
+  /** True once the frame cap is reached and further samples are ignored. */
+  get full(): boolean {
+    return this.recorded.length >= this.maxFrames;
+  }
+
+  /** Copies, so callers cannot mutate the recording. */
+  get points(): CustomPoint[] {
+    return this.recorded.map(point => ({
+      position: { ...point.position },
+      target: { ...point.target },
+    }));
+  }
+
+  sample(
+    position: { x: number; y: number; z: number },
+    target: { x: number; y: number; z: number },
+  ): void {
+    if (this.full) return;
+
+    // the first call records, then every sampleEvery-th call after it
+    const tick = this.callCount;
+    this.callCount += 1;
+    if (tick % this.sampleEvery !== 0) return;
+
+    const last = this.recorded[this.recorded.length - 1];
+    if (
+      last &&
+      last.position.x === position.x &&
+      last.position.y === position.y &&
+      last.position.z === position.z &&
+      last.target.x === target.x &&
+      last.target.y === target.y &&
+      last.target.z === target.z
+    ) {
+      return;
+    }
+
+    this.recorded.push({
+      position: { x: position.x, y: position.y, z: position.z },
+      target: { x: target.x, y: target.y, z: target.z },
+    });
+  }
+}
+
 export function applyKeyframe(
   camera: THREE.PerspectiveCamera,
   controls: { target: THREE.Vector3; update: () => void },
