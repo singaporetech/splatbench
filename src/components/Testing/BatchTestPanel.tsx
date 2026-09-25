@@ -11,7 +11,11 @@ import {
 } from '../../hooks/useBatchTestRunner';
 import type { BatchPairResult } from '../../hooks/useBatchTestRunner';
 import { getTests } from '../../lib/testing/registry';
-import { downloadBenchmarkCSV, exportBenchmarkBatchResultsToCSV } from '../../lib/export/benchmarkCsvExport';
+import {
+  EXPORT_SCHEMA_VERSION,
+  downloadBenchmarkCSV,
+  exportBenchmarkBatchResultsToCSV,
+} from '../../lib/export/benchmarkCsvExport';
 import { InfoTooltip } from '../UI/InfoTooltip';
 
 interface BatchTestPanelProps {
@@ -409,7 +413,7 @@ export function BatchTestPanel({
         paired <span style={{ color: '#FFACBF' }}>test</span> splat is compared against it.
         Canonical benchmark pairs named as <span className="font-mono">scene-format</span> are
         expanded automatically into 5 viewpoints, 3 replicates, and all registered tests.{' '}
-        <InfoTooltip text="Place ref_<name> and test_<name> file pairs in a folder. Standard pairs run once. Canonical benchmark pairs such as ref_bonsai-splat.ply and test_bonsai-splat.splat automatically run the full benchmark matrix and can be exported directly to the 41-column benchmark CSV." />
+        <InfoTooltip text={`Place ref_<name> and test_<name> file pairs in a folder. Standard pairs run once. Canonical benchmark pairs such as ref_bonsai-splat.ply and test_bonsai-splat.splat automatically run the full benchmark matrix and can be exported directly to the benchmark CSV (schema ${EXPORT_SCHEMA_VERSION}).`} />
       </p>
 
       <div

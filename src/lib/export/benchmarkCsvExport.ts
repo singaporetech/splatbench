@@ -8,6 +8,9 @@
 
 import type { BenchmarkMetrics } from '../../types';
 import type { TestResult } from '../testing/types';
+import { APP_VERSION, RENDERER_LIB_VERSIONS, EXPORT_SCHEMA_VERSION } from './buildInfo';
+
+export { EXPORT_SCHEMA_VERSION } from './buildInfo';
 
 export const BENCHMARK_CSV_HEADERS = [
   'timestamp',
@@ -51,6 +54,23 @@ export const BENCHMARK_CSV_HEADERS = [
   'splat_count_test',
   'canvas_width',
   'canvas_height',
+  // schema 2.0, appended after the original 41 columns
+  'app_version',
+  'renderer_lib_versions',
+  'export_schema_version',
+  // trajectory rows only
+  'interframe_ssim_mean',
+  'interframe_ssim_std',
+  'interframe_ssim_min',
+  'psnr_min_db',
+  'ssim_min',
+  // front-viewpoint rows only, like load_time_ms
+  'load_read_ms_reference',
+  'load_init_ms_reference',
+  'load_first_frame_ms_reference',
+  'load_read_ms_test',
+  'load_init_ms_test',
+  'load_first_frame_ms_test',
 ] as const;
 
 type BenchmarkCsvHeader = (typeof BENCHMARK_CSV_HEADERS)[number];
@@ -179,6 +199,18 @@ function fileSizeMB(sizeBytes: number | undefined, metrics: BenchmarkMetrics | u
   if (metrics && metrics.fileSize > 0) return metrics.fileSize;
   if (sizeBytes && sizeBytes > 0) return sizeBytes / 1024 / 1024;
   return null;
+}
+
+// performance.memory is Chrome-only; the collector reports 0 when it is
+// unavailable, which exports as blank rather than 0
+function memoryCell(metrics: BenchmarkMetrics | undefined): string {
+  const value = metrics?.memoryUsage;
+  return value !== undefined && value > 0 ? formatNumber(value, 1) : '';
+}
+
+// the collector reports 0 for a load phase that was not measured
+function loadPhaseCell(value: number | undefined): string {
+  return value !== undefined && value > 0 ? formatInteger(value) : '';
 }
 
 function cameraDistance(position: { x: number; y: number; z: number } | undefined): number | null {
@@ -342,16 +374,16 @@ function createBenchmarkCsvRow(
     ssim: formatNumber(ssim, 4),
     fps_reference: isStatic ? '' : formatNumber(metrics?.reference.fps, 1),
     frame_time_ms_reference: isStatic ? '' : formatNumber(metrics?.reference.frameTime, 2),
-    memory_mb_reference: '',
+    memory_mb_reference: memoryCell(metrics?.reference),
     load_time_ms_reference: isFront ? formatInteger(metrics?.reference.loadTime) : '',
-    fps_1_percent_low_reference: '',
-    frame_time_variance_reference: '',
+    fps_1_percent_low_reference: isStatic ? '' : formatNumber(metrics?.reference.fps1PercentLow, 1),
+    frame_time_variance_reference: isStatic ? '' : formatNumber(metrics?.reference.frameTimeVariance, 2),
     fps_test: isStatic ? '' : formatNumber(metrics?.test.fps, 1),
     frame_time_ms_test: isStatic ? '' : formatNumber(metrics?.test.frameTime, 2),
-    memory_mb_test: '',
+    memory_mb_test: memoryCell(metrics?.test),
     load_time_ms_test: isFront ? formatInteger(metrics?.test.loadTime) : '',
-    fps_1_percent_low_test: '',
-    frame_time_variance_test: '',
+    fps_1_percent_low_test: isStatic ? '' : formatNumber(metrics?.test.fps1PercentLow, 1),
+    frame_time_variance_test: isStatic ? '' : formatNumber(metrics?.test.frameTimeVariance, 2),
     browser_name: runtimeInfo.browserName,
     browser_version: runtimeInfo.browserVersion,
     browser_engine: runtimeInfo.browserEngine,
@@ -364,6 +396,20 @@ function createBenchmarkCsvRow(
     splat_count_test: formatInteger(metrics?.test.splatCount),
     canvas_width: formatInteger(metrics?.canvasWidth || metrics?.reference.resolution[0]),
     canvas_height: formatInteger(metrics?.canvasHeight || metrics?.reference.resolution[1]),
+    app_version: APP_VERSION,
+    renderer_lib_versions: RENDERER_LIB_VERSIONS,
+    export_schema_version: EXPORT_SCHEMA_VERSION,
+    interframe_ssim_mean: formatNumber(metricValue(input.result, ['interFrameSSIMMean']), 4),
+    interframe_ssim_std: formatNumber(metricValue(input.result, ['interFrameSSIMStdDev']), 6),
+    interframe_ssim_min: formatNumber(metricValue(input.result, ['interFrameSSIMMin']), 4),
+    psnr_min_db: formatNumber(metricValue(input.result, ['psnrMin']), 2),
+    ssim_min: formatNumber(metricValue(input.result, ['ssimMin']), 4),
+    load_read_ms_reference: isFront ? loadPhaseCell(metrics?.reference.loadReadMs) : '',
+    load_init_ms_reference: isFront ? loadPhaseCell(metrics?.reference.loadInitMs) : '',
+    load_first_frame_ms_reference: isFront ? loadPhaseCell(metrics?.reference.loadFirstFrameMs) : '',
+    load_read_ms_test: isFront ? loadPhaseCell(metrics?.test.loadReadMs) : '',
+    load_init_ms_test: isFront ? loadPhaseCell(metrics?.test.loadInitMs) : '',
+    load_first_frame_ms_test: isFront ? loadPhaseCell(metrics?.test.loadFirstFrameMs) : '',
   };
 }
 

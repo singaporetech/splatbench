@@ -179,6 +179,12 @@ async function runTrajectoryTest(
     if (metricsResult.aggregatePerFrame.ssimMean !== null) {
       metrics.ssimMean = metricsResult.aggregatePerFrame.ssimMean;
     }
+    if (metricsResult.aggregatePerFrame.psnrMin !== null) {
+      metrics.psnrMin = metricsResult.aggregatePerFrame.psnrMin;
+    }
+    if (metricsResult.aggregatePerFrame.ssimMin !== null) {
+      metrics.ssimMin = metricsResult.aggregatePerFrame.ssimMin;
+    }
 
     return {
       testId,
