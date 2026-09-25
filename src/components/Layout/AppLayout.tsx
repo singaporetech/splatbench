@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { GSFile, SparkViewerContext } from '../../types';
+import type { GSFile, LoadPhaseTimings, SparkViewerContext } from '../../types';
 import { FileDropzone } from '../FileLoader/FileDropzone';
 import { GSViewer } from '../Viewer/GSViewer';
 import { CameraDistance } from '../Viewer/CameraDistance';
@@ -287,16 +287,26 @@ export function AppLayout() {
     [metricsB, imageQuality],
   );
 
-  const handleLoadCompleteA = (loadTime: number, splatCount: number) => {
-    console.log('handleLoadCompleteA:', { loadTime, splatCount, fileSize: fileA?.size });
+  const handleLoadCompleteA = (loadTime: number, splatCount: number, phases: LoadPhaseTimings) => {
+    console.log('handleLoadCompleteA:', { loadTime, splatCount, fileSize: fileA?.size, phases });
     metricsA.setLoadTime(loadTime);
+    metricsA.setLoadPhases(phases.fileReadMs, phases.meshInitMs);
     metricsA.setFileInfo(fileA?.size || 0, splatCount);
   };
 
-  const handleLoadCompleteB = (loadTime: number, splatCount: number) => {
-    console.log('handleLoadCompleteB:', { loadTime, splatCount, fileSize: fileB?.size });
+  const handleLoadCompleteB = (loadTime: number, splatCount: number, phases: LoadPhaseTimings) => {
+    console.log('handleLoadCompleteB:', { loadTime, splatCount, fileSize: fileB?.size, phases });
     metricsB.setLoadTime(loadTime);
+    metricsB.setLoadPhases(phases.fileReadMs, phases.meshInitMs);
     metricsB.setFileInfo(fileB?.size || 0, splatCount);
+  };
+
+  const handleFirstFrameA = (firstFrameMs: number) => {
+    metricsA.setFirstFrameTime(firstFrameMs);
+  };
+
+  const handleFirstFrameB = (firstFrameMs: number) => {
+    metricsB.setFirstFrameTime(firstFrameMs);
   };
 
   const handleFrameUpdateA = (deltaTime: number) => {
@@ -506,6 +516,7 @@ export function AppLayout() {
                 onLoadComplete={handleLoadCompleteA}
                 onFrameUpdate={handleFrameUpdateA}
                 onViewerReady={handleContextReadyA}
+                onFirstFrame={handleFirstFrameA}
               />
             )}
           </div>
@@ -561,6 +572,7 @@ export function AppLayout() {
                 onLoadComplete={handleLoadCompleteB}
                 onFrameUpdate={handleFrameUpdateB}
                 onViewerReady={handleContextReadyB}
+                onFirstFrame={handleFirstFrameB}
               />
             )}
           </div>

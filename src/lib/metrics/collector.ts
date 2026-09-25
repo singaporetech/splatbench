@@ -4,12 +4,24 @@ export class MetricsCollector {
   private frameTimes: number[] = [];
   private maxFrames = 300;
   private loadTime: number = 0;
+  private loadReadMs: number = 0;
+  private loadInitMs: number = 0;
+  private loadFirstFrameMs: number = 0;
   private fileSize: number = 0;
   private splatCount: number = 0;
   private resolution: [number, number] = [0, 0];
 
   endLoad(loadTime: number) {
     this.loadTime = loadTime;
+  }
+
+  setLoadPhases(fileReadMs: number, meshInitMs: number) {
+    this.loadReadMs = fileReadMs;
+    this.loadInitMs = meshInitMs;
+  }
+
+  setFirstFrameTime(firstFrameMs: number) {
+    this.loadFirstFrameMs = firstFrameMs;
   }
 
   recordFrame(deltaTime: number) {
@@ -89,6 +101,9 @@ export class MetricsCollector {
       frameTime: Math.round(this.getFrameTime() * 100) / 100,
       memoryUsage: Math.round(this.getMemory() * 10) / 10,
       loadTime: Math.round(this.loadTime),
+      loadReadMs: Math.round(this.loadReadMs),
+      loadInitMs: Math.round(this.loadInitMs),
+      loadFirstFrameMs: Math.round(this.loadFirstFrameMs),
       fileSize: Math.round((this.fileSize / 1024 / 1024) * 100) / 100,
       splatCount: this.splatCount,
       resolution: this.resolution,
@@ -110,6 +125,9 @@ export class MetricsCollector {
   reset() {
     this.frameTimes = [];
     this.loadTime = 0;
+    this.loadReadMs = 0;
+    this.loadInitMs = 0;
+    this.loadFirstFrameMs = 0;
     this.fileSize = 0;
     this.splatCount = 0;
     this.resolution = [0, 0];

@@ -1,6 +1,12 @@
 import { useState, useCallback } from 'react';
 import { SplatMesh, SplatFileType } from '@sparkjsdev/spark';
-import type { GSFile } from '../types';
+import type { GSFile, LoadPhaseTimings } from '../types';
+
+export type OnLoadComplete = (
+  loadTime: number,
+  splatCount: number,
+  phases: LoadPhaseTimings,
+) => void;
 
 export function useGSLoader() {
   const [splatMesh, setSplatMesh] = useState<SplatMesh | null>(null);
@@ -11,7 +17,7 @@ export function useGSLoader() {
 
   const loadFile = useCallback(async (
     gsFile: GSFile,
-    onLoadComplete?: (loadTime: number, splatCount: number) => void
+    onLoadComplete?: OnLoadComplete
   ) => {
     if (splatMesh) {
       splatMesh.dispose();
@@ -35,9 +41,12 @@ export function useGSLoader() {
     }
 
     try {
+      const readStart = performance.now();
       const arrayBuffer = await gsFile.file.arrayBuffer();
+      const fileReadMs = performance.now() - readStart;
       const fileBytes = new Uint8Array(arrayBuffer);
 
+      const initStart = performance.now();
       const mesh = new SplatMesh({
         fileBytes,
         fileType,
@@ -51,7 +60,8 @@ export function useGSLoader() {
       }, 100);
 
       await mesh.initialized;
-      
+      const meshInitMs = performance.now() - initStart;
+
       clearInterval(progressInterval);
       setLoadProgress(1);
 
@@ -63,7 +73,11 @@ export function useGSLoader() {
       const loadTime = performance.now() - startTime;
 
       if (onLoadComplete) {
-        onLoadComplete(loadTime, count);
+        onLoadComplete(loadTime, count, {
+          fileReadMs,
+          meshInitMs,
+          loadStart: startTime,
+        });
       }
     } catch (e) {
       const error = e as Error;
