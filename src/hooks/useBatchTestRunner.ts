@@ -4,7 +4,9 @@ import type { TestResult, TestScene, Test, OnProgress } from '../lib/testing/typ
 import { getTests } from '../lib/testing/registry';
 import {
   applyCameraPreset,
+  estimateSceneRadiusFromMesh,
   getScenePresets,
+  resolveSceneRadius,
   type ViewpointPreset,
 } from '../lib/camera/cameraPresets';
 import type { BenchmarkBatchRowInput, BenchmarkMetricSnapshot } from '../lib/export/benchmarkCsvExport';
@@ -13,7 +15,13 @@ import type { BenchmarkBatchRowInput, BenchmarkMetricSnapshot } from '../lib/exp
 import '../lib/testing/trajectoryTests';
 import '../lib/testing/staticQualityTest';
 
-const BENCHMARK_SCENE_PATTERN = /^(bonsai|flower|garden|playroom|train|truck)-(splat|ksplat|spz)$/u;
+/**
+ * Canonical benchmark pair naming: `<scene>-<format>`, for example
+ * `bonsai-splat` or `drjohnson-sog`. Any lowercase alphanumeric scene token is
+ * accepted; scenes without a pinned radius are measured from the reference
+ * asset once the pair has loaded.
+ */
+const BENCHMARK_SCENE_PATTERN = /^([a-z0-9]+)-(splat|ksplat|spz|sog)$/u;
 const BENCHMARK_REPLICATES = ['1', '2', '3'] as const;
 
 export interface ParsedBenchmarkPairName {
@@ -39,11 +47,18 @@ export function parseBenchmarkPairName(pairName: string): ParsedBenchmarkPairNam
   };
 }
 
-export function createBenchmarkRunPlans(pairName: string): BenchmarkRunPlan[] | null {
+/**
+ * Expand a benchmark pair into its viewpoint x replicate matrix.
+ * `estimatedRadius` only applies to scenes without a pinned radius.
+ */
+export function createBenchmarkRunPlans(
+  pairName: string,
+  estimatedRadius?: number | null,
+): BenchmarkRunPlan[] | null {
   const parsed = parseBenchmarkPairName(pairName);
   if (!parsed) return null;
 
-  return getScenePresets(parsed.sceneName).flatMap((preset) =>
+  return getScenePresets(parsed.sceneName, estimatedRadius).flatMap((preset) =>
     BENCHMARK_REPLICATES.map((replicate) => ({
       sceneName: parsed.sceneName,
       testFormat: parsed.testFormat,
@@ -52,6 +67,28 @@ export function createBenchmarkRunPlans(pairName: string): BenchmarkRunPlan[] | 
       preset,
     })),
   );
+}
+
+/**
+ * Radius to scale a pair's viewpoints by, measured once per pair from the
+ * reference asset, so a lossy test format cannot move the camera it is judged
+ * at and every format of a scene lands on the same distances. Returns null for
+ * scenes with a pinned radius or when nothing can be measured.
+ */
+export function measureSceneRadius(scene: TestScene, sceneName: string): number | null {
+  if (resolveSceneRadius(sceneName).source === 'table') return null;
+
+  const mesh = scene.reference?.splatMesh ?? scene.primary.splatMesh;
+  if (!mesh) return null;
+
+  try {
+    const numSplats = mesh.packedSplats?.numSplats ?? 0;
+    const radius = estimateSceneRadiusFromMesh(mesh, numSplats);
+    return radius > 0 ? radius : null;
+  } catch {
+    // a mesh that cannot be enumerated falls back to the default radius
+    return null;
+  }
 }
 
 function waitForFrame(): Promise<void> {
@@ -176,8 +213,7 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
         if (controller.signal.aborted) break;
 
         const pair = pairs[pairIdx];
-        const benchmarkRunPlans = createBenchmarkRunPlans(pair.name);
-        const runPlans = benchmarkRunPlans ?? [null];
+        const plannedBenchmarkRuns = createBenchmarkRunPlans(pair.name);
         const pairRunStartIndex = completedRuns;
 
         setCurrentPairIndex(completedRuns);
@@ -197,6 +233,8 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
           error: null,
         };
 
+        let runPlans: (BenchmarkRunPlan | null)[] = plannedBenchmarkRuns ?? [null];
+
         try {
           const scene = await loadPair(pair.ref, pair.test);
 
@@ -209,6 +247,15 @@ export function useBatchTestRunner(): UseBatchTestRunnerReturn {
           }
 
           await settleViewers(scene);
+
+          // pin the radius once, from the reference asset, before any viewpoint
+          // is applied; scenes with a pinned radius skip the measurement
+          if (plannedBenchmarkRuns) {
+            const measuredRadius = measureSceneRadius(scene, plannedBenchmarkRuns[0].sceneName);
+            if (measuredRadius !== null) {
+              runPlans = createBenchmarkRunPlans(pair.name, measuredRadius) ?? runPlans;
+            }
+          }
 
           for (const runPlan of runPlans) {
             if (controller.signal.aborted) break;

@@ -14,14 +14,14 @@ export function FileDropzone({ onFileSelect, side }: FileDropzoneProps) {
   const inputId = side ? `dropzone-file-input-${side}` : 'dropzone-file-input';
 
   const validateFile = (file: File): boolean => {
-    const validExtensions = ['.ply', '.splat', '.ksplat', '.spz'];
+    const validExtensions = ['.ply', '.splat', '.ksplat', '.spz', '.sog'];
     const extension = file.name.substring(file.name.lastIndexOf('.'));
     return validExtensions.includes(extension);
   };
 
   const handleFile = useCallback((file: File) => {
     if (!validateFile(file)) {
-      alert('Invalid file type. Please select a .ply, .splat, .ksplat, or .spz file.');
+      alert('Invalid file type. Please select a .ply, .splat, .ksplat, .spz, or .sog file.');
       return;
     }
 
@@ -88,7 +88,7 @@ export function FileDropzone({ onFileSelect, side }: FileDropzoneProps) {
         <input
           id={inputId}
           type="file"
-          accept=".ply,.splat,.ksplat,.spz"
+          accept=".ply,.splat,.ksplat,.spz,.sog"
           onChange={handleFileInput}
           className="hidden"
         />
@@ -109,7 +109,7 @@ export function FileDropzone({ onFileSelect, side }: FileDropzoneProps) {
               <p className="text-xs md:text-sm mb-3 md:mb-6" style={{ color: '#FFACBF' }}>or tap to browse</p>
               <div className="inline-flex max-w-full items-center justify-center rounded-lg px-3 py-2 sm:px-4 sm:py-2.5 md:px-5 md:py-3" style={{ backgroundColor: 'rgba(68, 68, 68, 0.3)' }}>
                 <p className="text-[11px] sm:text-xs leading-relaxed break-words" style={{ color: '#FDFDFB' }}>
-                  Supported: .ply, .splat, .ksplat, .spz
+                  Supported: .ply, .splat, .ksplat, .spz, .sog
                 </p>
               </div>
             </div>

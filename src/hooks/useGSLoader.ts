@@ -38,6 +38,9 @@ export function useGSLoader() {
       fileType = SplatFileType.KSPLAT;
     } else if (gsFile.format === '.spz') {
       fileType = SplatFileType.SPZ;
+    } else if (gsFile.format === '.sog') {
+      // PlayCanvas SOG bundle, a zip of WebP attribute images and metadata
+      fileType = SplatFileType.PCSOGSZIP;
     }
 
     try {

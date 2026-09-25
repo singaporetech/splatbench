@@ -172,6 +172,56 @@ describe('benchmarkCsvExport', () => {
     expect(row.canvas_height).toBe('811');
   });
 
+  it('maps every format in the four-format matrix, including sog', () => {
+    for (const format of ['splat', 'ksplat', 'spz', 'sog']) {
+      const input = batchResult('trajectory-orbit');
+      input.pairName = `bonsai-${format}-front-r2`;
+      input.refFile = `ref_bonsai-${format}-front-r2.ply`;
+      input.testFile = `test_bonsai-${format}-front-r2.${format}`;
+
+      const [row] = createBenchmarkCsvRows([input], runtimeInfo);
+      expect(row.test_format).toBe(format);
+      expect(row.variant_or_basename).toBe(`bonsai.${format}`);
+      expect(row.reference_format).toBe('ply');
+    }
+  });
+
+  it('infers scenes outside the six pinned scenes from the file names', () => {
+    for (const scene of [
+      'bicycle',
+      'counter',
+      'drjohnson',
+      'kitchen',
+      'room',
+      'stump',
+      'treehill',
+    ]) {
+      const input = batchResult('trajectory-orbit');
+      input.pairName = `${scene}-spz-front-r2`;
+      input.refFile = `ref_${scene}-spz-front-r2.ply`;
+      input.testFile = `test_${scene}-spz-front-r2.spz`;
+
+      const [row] = createBenchmarkCsvRows([input], runtimeInfo);
+      expect(row.scene_name).toBe(scene);
+      expect(row.variant_or_basename).toBe(`${scene}.spz`);
+    }
+  });
+
+  it('infers "flowers" without it collapsing to "flower" or to "playroom"', () => {
+    const flowers = batchResult('trajectory-orbit');
+    flowers.pairName = 'flowers-sog-front-r2';
+    flowers.refFile = 'ref_flowers-sog-front-r2.ply';
+    flowers.testFile = 'test_flowers-sog-front-r2.sog';
+    expect(createBenchmarkCsvRows([flowers], runtimeInfo)[0].scene_name).toBe('flowers');
+
+    // `room` must not claim a name it is only a substring of
+    const playroom = batchResult('trajectory-orbit');
+    playroom.pairName = 'playroom-spz-front-r2';
+    playroom.refFile = 'ref_playroom-spz-front-r2.ply';
+    playroom.testFile = 'test_playroom-spz-front-r2.spz';
+    expect(createBenchmarkCsvRows([playroom], runtimeInfo)[0].scene_name).toBe('playroom');
+  });
+
   it('exports temporal-stability metrics for trajectory rows and blanks for static rows', () => {
     const input = batchResult('trajectory-orbit');
     input.results[0].metrics = {

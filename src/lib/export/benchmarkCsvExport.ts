@@ -9,6 +9,7 @@
 import type { BenchmarkMetrics } from '../../types';
 import type { TestResult } from '../testing/types';
 import { APP_VERSION, RENDERER_LIB_VERSIONS, EXPORT_SCHEMA_VERSION } from './buildInfo';
+import { RECOGNIZED_SCENE_TOKENS } from '../scenes/sceneCatalog';
 
 export { EXPORT_SCHEMA_VERSION } from './buildInfo';
 
@@ -138,8 +139,10 @@ interface NormalizedBenchmarkRowInput {
   replicate?: string;
 }
 
-const CANONICAL_SCENES = ['bonsai', 'flower', 'garden', 'playroom', 'train', 'truck'] as const;
-const TEST_FORMATS = ['splat', 'ksplat', 'spz'] as const;
+// scene tokens recoverable from a file name when a batch does not use the
+// canonical <scene>-<format> pair naming
+const CANONICAL_SCENES = RECOGNIZED_SCENE_TOKENS;
+const TEST_FORMATS = ['splat', 'ksplat', 'spz', 'sog'] as const;
 const VIEWPOINTS = ['front', 'left45', 'right45', 'close', 'wide'] as const;
 
 function formatNumber(value: number | null | undefined, digits: number): string {

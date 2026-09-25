@@ -37,7 +37,7 @@ export interface GSFile {
   file: File;
   name: string;
   size: number;
-  format: '.ply' | '.splat' | '.ksplat' | '.spz';
+  format: '.ply' | '.splat' | '.ksplat' | '.spz' | '.sog';
 }
 
 export interface ImageQualityMetrics {

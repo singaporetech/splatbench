@@ -320,7 +320,7 @@ export function BatchTestPanel({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".ply,.splat,.ksplat,.spz"
+          accept=".ply,.splat,.ksplat,.spz,.sog"
           className="hidden"
           onChange={handleInputChange}
         />

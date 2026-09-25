@@ -9,6 +9,7 @@ import { useMetrics } from '../../hooks/useMetrics';
 import { useImageQuality } from '../../hooks/useImageQuality';
 import { useCameraSync } from '../../hooks/useCameraSync';
 import { getScenePresets, resetControlsMomentum } from '../../lib/camera/cameraPresets';
+import { RECOGNIZED_SCENE_TOKENS } from '../../lib/scenes/sceneCatalog';
 import { captureComparisonScreenshot, generateComparisonFilename, downloadScreenshot } from '../../lib/export/screenshot';
 import { createExportRecord, exportAndDownload } from '../../lib/export/csvExport';
 import { TestPanel } from '../Testing/TestPanel';
@@ -20,7 +21,8 @@ interface ComparisonSliderState {
 }
 
 function detectSceneName(filename: string): string | null {
-  const knownScenes = ['bonsai', 'garden', 'playroom', 'truck', 'train', 'flower'];
+  // ordered so a substring match such as `room` cannot claim `playroom`
+  const knownScenes = RECOGNIZED_SCENE_TOKENS;
   const lowerFilename = filename.toLowerCase();
 
   for (const scene of knownScenes) {
@@ -31,7 +33,7 @@ function detectSceneName(filename: string): string | null {
 
   // fall back to the base name with common suffixes removed
   const baseName = filename
-    .replace(/\.(ply|splat|ksplat|spz)$/i, '')
+    .replace(/\.(ply|splat|ksplat|spz|sog)$/i, '')
     .replace(/-splatfacto$/i, '')
     .replace(/_converted$/i, '');
 
@@ -393,7 +395,7 @@ export function AppLayout() {
       <input
         id="file-input-A"
         type="file"
-        accept=".ply,.splat,.ksplat,.spz"
+        accept=".ply,.splat,.ksplat,.spz,.sog"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
@@ -414,7 +416,7 @@ export function AppLayout() {
       <input
         id="file-input-B"
         type="file"
-        accept=".ply,.splat,.ksplat,.spz"
+        accept=".ply,.splat,.ksplat,.spz,.sog"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
