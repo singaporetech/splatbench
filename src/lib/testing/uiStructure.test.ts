@@ -163,6 +163,78 @@ describe('BatchTestPanel UI Structure', () => {
   });
 });
 
+describe('BatchTestPanel seeded sweep controls', () => {
+  const batchPanelSource = readComponent('BatchTestPanel.tsx');
+
+  // scripted runs drive these controls by label and test id
+  it('labels the toggle "Seeded trajectory sweep"', () => {
+    expect(batchPanelSource).toContain("aria-label=\"Seeded trajectory sweep\"");
+    expect(batchPanelSource).toContain('Seeded trajectory sweep');
+    expect(batchPanelSource).toContain("data-testid=\"seeded-sweep-toggle\"");
+  });
+
+  it('gives the seeds input a stable label and test id', () => {
+    expect(batchPanelSource).toContain("aria-label=\"Seeded sweep seeds\"");
+    expect(batchPanelSource).toContain("data-testid=\"seeded-sweep-seeds\"");
+    expect(batchPanelSource).toContain("id=\"seeded-sweep-seeds\"");
+    expect(batchPanelSource).toContain("htmlFor=\"seeded-sweep-seeds\"");
+  });
+
+  it('defaults the sweep off', () => {
+    expect(batchPanelSource).toContain('useState(false)');
+    expect(batchPanelSource).toContain('const [seededSweepEnabled, setSeededSweepEnabled] = useState(false)');
+  });
+
+  it('seeds the input from the shared default rather than a literal', () => {
+    expect(batchPanelSource).toContain('useState(DEFAULT_SWEEP_SEED_INPUT)');
+    expect(batchPanelSource).toContain("from '../../lib/testing/trajectorySettings'");
+  });
+
+  it('disables both controls while a batch is running', () => {
+    const toggleIndex = batchPanelSource.indexOf("data-testid=\"seeded-sweep-toggle\"");
+    const inputIndex = batchPanelSource.indexOf("data-testid=\"seeded-sweep-seeds\"");
+    // each control's disabled prop sits within its own JSX element
+    expect(batchPanelSource.slice(toggleIndex, toggleIndex + 300)).toContain('disabled={isRunning}');
+    expect(batchPanelSource.slice(inputIndex, inputIndex + 300)).toContain('disabled={isRunning}');
+  });
+
+  it('surfaces a parse error in the panel error style and blocks the run', () => {
+    expect(batchPanelSource).toContain('parseSeedList(seedInput)');
+    expect(batchPanelSource).toContain('seedError');
+    expect(batchPanelSource).toContain("backgroundColor: 'rgba(255, 87, 95, 0.15)'");
+    expect(batchPanelSource).toContain('seedError === null');
+  });
+
+  it('passes the sweep to the runner only when it is enabled and valid', () => {
+    expect(batchPanelSource).toContain('seededSweep: { seeds: sweepSeeds }');
+    expect(batchPanelSource).toContain('sweepSeeds ?');
+  });
+
+  it('includes sweep rows in the expected-rows readout', () => {
+    expect(batchPanelSource).toContain('computeExpectedBenchmarkRows');
+    expect(batchPanelSource).toContain('sweepSeeds?.length ?? 0');
+  });
+});
+
+describe('TestScene role wiring', () => {
+  const testPanelSource = readComponent('TestPanel.tsx');
+  const batchPanelSource = readComponent('BatchTestPanel.tsx');
+
+  // single-viewer metrics such as inter-frame SSIM are computed on
+  // scene.primary, so primary must be the test-format viewer
+  it('makes the test-format viewer the primary in TestPanel', () => {
+    expect(testPanelSource).toContain('{ primary: contextB, reference: contextA }');
+    expect(testPanelSource).toContain('{ primary: contextA, reference: null }');
+    expect(testPanelSource).not.toContain('reference: contextB');
+  });
+
+  it('makes the test-format viewer the primary in BatchTestPanel', () => {
+    expect(batchPanelSource).toContain('{ primary: ctxB, reference: ctxA }');
+    expect(batchPanelSource).toContain('{ primary: ctxA, reference: null }');
+    expect(batchPanelSource).not.toContain('reference: ctxB');
+  });
+});
+
 describe('Current-model progress display', () => {
   const testPanelSource = readComponent('TestPanel.tsx');
 

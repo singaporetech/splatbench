@@ -37,6 +37,14 @@ export function useMetrics() {
     collectorRef.current.endLoad(loadTime);
   };
 
+  const setLoadPhases = (fileReadMs: number, meshInitMs: number) => {
+    collectorRef.current.setLoadPhases(fileReadMs, meshInitMs);
+  };
+
+  const setFirstFrameTime = (firstFrameMs: number) => {
+    collectorRef.current.setFirstFrameTime(firstFrameMs);
+  };
+
   const setFileInfo = (size: number, splatCount: number) => {
     collectorRef.current.setFileInfo(size, splatCount);
   };
@@ -87,6 +95,8 @@ export function useMetrics() {
     metrics,
     recordFrame,
     setLoadTime,
+    setLoadPhases,
+    setFirstFrameTime,
     setFileInfo,
     setResolution,
     reset,

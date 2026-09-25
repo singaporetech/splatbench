@@ -1,7 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ViewpointPreset } from '../../lib/camera/cameraPresets';
-import { STANDARD_VIEWPOINTS, getScenePresets, resetControlsMomentum } from '../../lib/camera/cameraPresets';
+import {
+  STANDARD_VIEWPOINTS,
+  applyCameraPreset,
+  captureCurrentView,
+  getScenePresets,
+  parseViewpointsJSON,
+  serializeViewpoints,
+} from '../../lib/camera/cameraPresets';
 import type { SparkViewerContext } from '../../types';
+import { downloadJSON } from '../../lib/export/downloadJSON';
 
 interface CameraPresetPanelProps {
   viewerContext: SparkViewerContext | null;
@@ -16,7 +24,12 @@ export function CameraPresetPanel({
 }: CameraPresetPanelProps) {
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [showCustom, setShowCustom] = useState(false);
-  
+  const [customPresets, setCustomPresets] = useState<ViewpointPreset[]>([]);
+  const [customError, setCustomError] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  // only ever counts up, so a saved name stays unique after a removal
+  const savedCountRef = useRef(0);
+
   const presets = sceneName 
     ? getScenePresets(sceneName)
     : STANDARD_VIEWPOINTS;
@@ -25,24 +38,8 @@ export function CameraPresetPanel({
     if (!viewerContext) return;
     
     const { camera, controls } = viewerContext;
-    
-    resetControlsMomentum(controls);
-    
-    const targetPos = {
-      x: preset.position.x,
-      y: preset.position.y,
-      z: preset.position.z,
-    };
-    
-    camera.position.set(targetPos.x, targetPos.y, targetPos.z);
-    controls.target.set(preset.target.x, preset.target.y, preset.target.z);
-    
-    if (preset.fov) {
-      camera.fov = preset.fov;
-      camera.updateProjectionMatrix();
-    }
-    
-    controls.update();
+
+    applyCameraPreset(camera, controls, preset);
     
     setActivePreset(preset.id);
     
@@ -56,27 +53,48 @@ export function CameraPresetPanel({
 
   const handleSaveCustom = () => {
     if (!viewerContext) return;
-    
+
     const { camera, controls } = viewerContext;
-    
+
+    savedCountRef.current += 1;
+    const captured = captureCurrentView(camera, controls);
     const customPreset: ViewpointPreset = {
-      id: `custom_${Date.now()}`,
-      name: 'Custom',
-      description: 'Current camera position',
-      position: {
-        x: camera.position.x,
-        y: camera.position.y,
-        z: camera.position.z,
-      },
-      target: {
-        x: controls.target.x,
-        y: controls.target.y,
-        z: controls.target.z,
-      },
+      ...captured,
+      id: `custom_${Date.now().toString(36)}_${savedCountRef.current}`,
+      name: `Custom ${savedCountRef.current}`,
+      description: 'Saved from the current camera pose',
     };
-    
-    console.log('[CameraPreset] Saved custom view:', customPreset);
-    alert(`Saved custom view at distance ${camera.position.length().toFixed(2)}`);
+
+    setCustomPresets(previous => [...previous, customPreset]);
+    setCustomError(null);
+
+    console.log(`[CameraPreset] Saved: ${customPreset.name}`, {
+      position: camera.position.toArray(),
+      distance: camera.position.length().toFixed(2),
+    });
+  };
+
+  const handleRemoveCustom = (id: string) => {
+    setCustomPresets(previous => previous.filter(preset => preset.id !== id));
+  };
+
+  const handleExportCustom = () => {
+    if (customPresets.length === 0) return;
+    const name = sceneName || 'scene';
+    downloadJSON(`${name}-viewpoints.json`, serializeViewpoints(name, customPresets));
+  };
+
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const imported = parseViewpointsJSON(await file.text());
+      setCustomPresets(previous => [...previous, ...imported]);
+      setCustomError(null);
+    } catch (err) {
+      setCustomError(err instanceof Error ? err.message : 'Could not read viewpoint file');
+    }
+    // allow re-picking the same file after a fix
+    if (importInputRef.current) importInputRef.current.value = '';
   };
 
   if (!viewerContext) {
@@ -144,6 +162,84 @@ export function CameraPresetPanel({
             >
               Save Current View
             </button>
+
+            {customPresets.length > 0 && (
+              <div className="space-y-1">
+                {customPresets.map((preset, index) => (
+                  <div key={preset.id} className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleApplyPreset(preset)}
+                      className={`
+                        flex-1 text-left text-xs py-1.5 px-2 rounded transition-colors
+                        flex items-center justify-between
+                        ${activePreset === preset.id
+                          ? 'bg-purple-600 text-white'
+                          : 'hover:bg-gray-700 text-gray-200'
+                        }
+                      `}
+                    >
+                      <span>
+                        <span className="opacity-50 mr-1">C{index + 1}.</span>
+                        {preset.name}
+                      </span>
+                      {activePreset === preset.id && (
+                        <span className="text-xs opacity-75">●</span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleRemoveCustom(preset.id)}
+                      title={`Remove ${preset.name}`}
+                      className="text-xs py-1.5 px-2 rounded text-gray-500 hover:bg-gray-700 hover:text-gray-200"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={(e) => handleImportFile(e.target.files?.[0])}
+            />
+            <div className="flex gap-1">
+              <button
+                onClick={handleExportCustom}
+                disabled={customPresets.length === 0}
+                className={`
+                  flex-1 text-xs py-1.5 px-2 rounded
+                  ${customPresets.length === 0
+                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                    : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+                  }
+                `}
+              >
+                Export
+              </button>
+              <button
+                onClick={() => importInputRef.current?.click()}
+                className="flex-1 text-xs py-1.5 px-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+              >
+                Import&hellip;
+              </button>
+            </div>
+
+            {customError && (
+              <div
+                className="p-2 rounded-lg text-xs"
+                style={{
+                  backgroundColor: 'rgba(255, 87, 95, 0.15)',
+                  border: '1px solid #FF575F',
+                  color: '#FF575F',
+                }}
+              >
+                {customError}
+              </div>
+            )}
+
             <div className="text-xs text-gray-500 px-1">
               Distance: {viewerContext.camera.position.length().toFixed(2)} units
             </div>

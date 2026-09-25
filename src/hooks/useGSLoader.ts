@@ -1,6 +1,12 @@
 import { useState, useCallback } from 'react';
 import { SplatMesh, SplatFileType } from '@sparkjsdev/spark';
-import type { GSFile } from '../types';
+import type { GSFile, LoadPhaseTimings } from '../types';
+
+export type OnLoadComplete = (
+  loadTime: number,
+  splatCount: number,
+  phases: LoadPhaseTimings,
+) => void;
 
 export function useGSLoader() {
   const [splatMesh, setSplatMesh] = useState<SplatMesh | null>(null);
@@ -11,7 +17,7 @@ export function useGSLoader() {
 
   const loadFile = useCallback(async (
     gsFile: GSFile,
-    onLoadComplete?: (loadTime: number, splatCount: number) => void
+    onLoadComplete?: OnLoadComplete
   ) => {
     if (splatMesh) {
       splatMesh.dispose();
@@ -32,12 +38,18 @@ export function useGSLoader() {
       fileType = SplatFileType.KSPLAT;
     } else if (gsFile.format === '.spz') {
       fileType = SplatFileType.SPZ;
+    } else if (gsFile.format === '.sog') {
+      // PlayCanvas SOG bundle, a zip of WebP attribute images and metadata
+      fileType = SplatFileType.PCSOGSZIP;
     }
 
     try {
+      const readStart = performance.now();
       const arrayBuffer = await gsFile.file.arrayBuffer();
+      const fileReadMs = performance.now() - readStart;
       const fileBytes = new Uint8Array(arrayBuffer);
 
+      const initStart = performance.now();
       const mesh = new SplatMesh({
         fileBytes,
         fileType,
@@ -51,7 +63,8 @@ export function useGSLoader() {
       }, 100);
 
       await mesh.initialized;
-      
+      const meshInitMs = performance.now() - initStart;
+
       clearInterval(progressInterval);
       setLoadProgress(1);
 
@@ -63,7 +76,11 @@ export function useGSLoader() {
       const loadTime = performance.now() - startTime;
 
       if (onLoadComplete) {
-        onLoadComplete(loadTime, count);
+        onLoadComplete(loadTime, count, {
+          fileReadMs,
+          meshInitMs,
+          loadStart: startTime,
+        });
       }
     } catch (e) {
       const error = e as Error;
@@ -83,7 +100,7 @@ export function useGSLoader() {
           `This may be due to incompatible .ksplat format variant. ` +
           `Try converting with a different tool or use .splat or .spz format instead.`
         );
-        (formatError as any).originalError = e;
+        Object.assign(formatError, { originalError: e });
         setError(formatError);
       } else {
         setError(error);

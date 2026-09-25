@@ -18,13 +18,26 @@ export interface BenchmarkMetrics {
   frameTimeP50: number;
   frameTimeP95: number;
   frameTimeP99: number;
+
+  // load phases in ms, 0 when not measured: file read, mesh construction
+  // until mesh.initialized, and load start to the first rendered frame
+  loadReadMs?: number;
+  loadInitMs?: number;
+  loadFirstFrameMs?: number;
+}
+
+export interface LoadPhaseTimings {
+  fileReadMs: number;
+  meshInitMs: number;
+  // performance.now() at load start, before the file bytes are read
+  loadStart: number;
 }
 
 export interface GSFile {
   file: File;
   name: string;
   size: number;
-  format: '.ply' | '.splat' | '.ksplat' | '.spz';
+  format: '.ply' | '.splat' | '.ksplat' | '.spz' | '.sog';
 }
 
 export interface ImageQualityMetrics {

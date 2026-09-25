@@ -197,6 +197,7 @@ describe('buildTrajectoryMetricsResult', () => {
       t,
       psnr: null as number | null,
       ssim: null as number | null,
+      ssimWindowed: null as number | null,
     }));
 
     const result = buildTrajectoryMetricsResult(perFrame, interFrame, 'test');
@@ -211,6 +212,7 @@ describe('buildTrajectoryMetricsResult', () => {
       t: i / 4,
       psnr: null as number | null,
       ssim: null as number | null,
+      ssimWindowed: null as number | null,
     }));
 
     const result = buildTrajectoryMetricsResult(perFrame, interFrame, 'identical test');
@@ -236,6 +238,7 @@ describe('buildTrajectoryMetricsResult', () => {
       t: i / 4,
       psnr: null as number | null,
       ssim: null as number | null,
+      ssimWindowed: null as number | null,
     }));
 
     const result = buildTrajectoryMetricsResult(perFrame, interFrame, 'jump test');
@@ -246,9 +249,9 @@ describe('buildTrajectoryMetricsResult', () => {
 
   it('aggregates per-frame PSNR/SSIM when available', () => {
     const perFrame = [
-      { frameIndex: 0, t: 0, psnr: 30, ssim: 0.9 },
-      { frameIndex: 1, t: 0.5, psnr: 40, ssim: 0.95 },
-      { frameIndex: 2, t: 1.0, psnr: 35, ssim: 0.92 },
+      { frameIndex: 0, t: 0, psnr: 30, ssim: 0.9, ssimWindowed: 0.7 },
+      { frameIndex: 1, t: 0.5, psnr: 40, ssim: 0.95, ssimWindowed: 0.8 },
+      { frameIndex: 2, t: 1.0, psnr: 35, ssim: 0.92, ssimWindowed: 0.75 },
     ];
     const interFrame = [
       { pairIndex: 0, ssim: 0.98 },
@@ -267,8 +270,8 @@ describe('buildTrajectoryMetricsResult', () => {
 
   it('handles null per-frame metrics (no reference)', () => {
     const perFrame = [
-      { frameIndex: 0, t: 0, psnr: null, ssim: null },
-      { frameIndex: 1, t: 0.5, psnr: null, ssim: null },
+      { frameIndex: 0, t: 0, psnr: null, ssim: null, ssimWindowed: null },
+      { frameIndex: 1, t: 0.5, psnr: null, ssim: null, ssimWindowed: null },
     ];
     const interFrame = [{ pairIndex: 0, ssim: 0.99 }];
 
@@ -281,7 +284,7 @@ describe('buildTrajectoryMetricsResult', () => {
   });
 
   it('includes capturedAt timestamp', () => {
-    const perFrame = [{ frameIndex: 0, t: 0, psnr: null, ssim: null }];
+    const perFrame = [{ frameIndex: 0, t: 0, psnr: null, ssim: null, ssimWindowed: null }];
     const result = buildTrajectoryMetricsResult(perFrame, [], 'ts test');
     expect(result.capturedAt).toBeTruthy();
     // should be valid ISO date
@@ -290,9 +293,114 @@ describe('buildTrajectoryMetricsResult', () => {
 
   it('preserves trajectory description', () => {
     const desc = 'Orbit: 90 deg arc, 15 deg elevation, 5 units radius, 60 frames';
-    const perFrame = [{ frameIndex: 0, t: 0, psnr: null, ssim: null }];
+    const perFrame = [{ frameIndex: 0, t: 0, psnr: null, ssim: null, ssimWindowed: null }];
     const result = buildTrajectoryMetricsResult(perFrame, [], desc);
     expect(result.trajectoryDescription).toBe(desc);
+  });
+});
+
+// ─── Windowed SSIM Threading Tests ───────────────────────────────────────────
+
+describe('windowed SSIM in trajectory metrics', () => {
+  /** Frames large enough for the 11x11 window, with per-frame texture. */
+  function texturedSequence(count: number, offset: number): ImageData[] {
+    const frames: ImageData[] = [];
+    for (let i = 0; i < count; i++) {
+      const data = new Uint8ClampedArray(16 * 16 * 4);
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const idx = (y * 16 + x) * 4;
+          const v = (x * 9 + y * 5 + i * 11 + offset) % 256;
+          data[idx] = v;
+          data[idx + 1] = (v + 40) % 256;
+          data[idx + 2] = (v + 90) % 256;
+          data[idx + 3] = 255;
+        }
+      }
+      frames.push({ data, width: 16, height: 16, colorSpace: 'srgb' as PredefinedColorSpace });
+    }
+    return frames;
+  }
+
+  it('populates a windowed SSIM value on every per-frame metric', () => {
+    const reference = texturedSequence(4, 0);
+    const test = texturedSequence(4, 25);
+    const result = computePerFrameMetrics(reference, test, [0, 0.33, 0.66, 1]);
+
+    expect(result).toHaveLength(4);
+    for (const frame of result) {
+      expect(frame.ssimWindowed).not.toBeNull();
+      expect(frame.ssimWindowed as number).toBeGreaterThan(-1);
+      expect(frame.ssimWindowed as number).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('reports windowed SSIM of 1.0 per frame when the sequences match', () => {
+    const frames = texturedSequence(3, 0);
+    const result = computePerFrameMetrics(frames, texturedSequence(3, 0), [0, 0.5, 1]);
+    for (const frame of result) {
+      expect(frame.ssimWindowed as number).toBeCloseTo(1.0, 10);
+    }
+  });
+
+  it('aggregates windowed SSIM as a mean and a minimum over frames', () => {
+    const perFrame = [
+      { frameIndex: 0, t: 0, psnr: 30, ssim: 0.99, ssimWindowed: 0.8 },
+      { frameIndex: 1, t: 0.5, psnr: 40, ssim: 0.99, ssimWindowed: 0.6 },
+      { frameIndex: 2, t: 1, psnr: 35, ssim: 0.99, ssimWindowed: 0.7 },
+    ];
+
+    const result = buildTrajectoryMetricsResult(perFrame, [{ pairIndex: 0, ssim: 0.98 }], 'agg');
+
+    expect(result.aggregatePerFrame.ssimWindowedMean).toBeCloseTo(0.7, 10);
+    expect(result.aggregatePerFrame.ssimWindowedMin).toBe(0.6);
+  });
+
+  it('leaves the windowed aggregates null when no reference frames exist', () => {
+    const perFrame = [
+      { frameIndex: 0, t: 0, psnr: null, ssim: null, ssimWindowed: null },
+      { frameIndex: 1, t: 1, psnr: null, ssim: null, ssimWindowed: null },
+    ];
+
+    const result = buildTrajectoryMetricsResult(perFrame, [{ pairIndex: 0, ssim: 0.99 }], 'no-ref');
+
+    expect(result.aggregatePerFrame.ssimWindowedMean).toBeNull();
+    expect(result.aggregatePerFrame.ssimWindowedMin).toBeNull();
+  });
+
+  it('does not change the whole-image per-frame or inter-frame values', () => {
+    const reference = texturedSequence(4, 0);
+    const test = texturedSequence(4, 25);
+    const perFrame = computePerFrameMetrics(reference, test, [0, 0.33, 0.66, 1]);
+    const interFrame = computeInterFrameSSIM(test);
+    const result = buildTrajectoryMetricsResult(perFrame, interFrame, 'parity');
+
+    // inter-frame SSIM stays whole-image
+    const expectedInterFrame = computeInterFrameSSIM(test);
+    expect(interFrame.map((m) => m.ssim)).toEqual(expectedInterFrame.map((m) => m.ssim));
+    expect(result.temporalConsistency.interFrameSSIMMean).toBeCloseTo(
+      expectedInterFrame.reduce((a, m) => a + m.ssim, 0) / expectedInterFrame.length,
+      12,
+    );
+
+    // windowed SSIM differs from whole-image SSIM on the same pair
+    const wholeImage = perFrame.map((m) => m.ssim as number);
+    const windowed = perFrame.map((m) => m.ssimWindowed as number);
+    expect(windowed.some((v, i) => Math.abs(v - wholeImage[i]) > 1e-6)).toBe(true);
+  });
+
+  it('yields per-frame windowed SSIM only when frames clear the 11x11 window', () => {
+    // 8x8 frames cannot fit a window, so windowed SSIM is null and the
+    // whole-image values are unaffected
+    const small = generateFrameSequence(2, 8, 8, 120, 10);
+    const other = generateFrameSequence(2, 8, 8, 140, 10);
+    const result = computePerFrameMetrics(small, other, [0, 1]);
+
+    for (const frame of result) {
+      expect(frame.ssimWindowed).toBeNull();
+      expect(frame.ssim).not.toBeNull();
+      expect(frame.psnr).not.toBeNull();
+    }
   });
 });
 
@@ -334,6 +442,7 @@ describe('determinism', () => {
       t: i / 7,
       psnr: null as number | null,
       ssim: null as number | null,
+      ssimWindowed: null as number | null,
     }));
 
     const r1 = buildTrajectoryMetricsResult(perFrame, interFrame, 'det-test');
@@ -360,6 +469,7 @@ describe('data integrity', () => {
         t,
         psnr: null as number | null,
         ssim: null as number | null,
+        ssimWindowed: null as number | null,
       }));
 
       const result = buildTrajectoryMetricsResult(perFrame, interFrame, `${n}-frame test`);
@@ -454,6 +564,7 @@ describe('edge cases', () => {
       t: i / 29,
       psnr: null as number | null,
       ssim: null as number | null,
+      ssimWindowed: null as number | null,
     }));
 
     const result = buildTrajectoryMetricsResult(perFrame, interFrame, 'zero-motion');

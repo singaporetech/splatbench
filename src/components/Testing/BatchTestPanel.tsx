@@ -1,17 +1,26 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo, useState } from 'react';
 import type { BenchmarkMetrics, SparkViewerContext } from '../../types';
 import type { TestScene } from '../../lib/testing/types';
 import type { GSFile } from '../../types';
 import { useBatchFolder } from '../../hooks/useBatchFolder';
 import type { FilePair } from '../../hooks/useBatchFolder';
 import {
-  createBenchmarkRunPlans,
+  computeExpectedBenchmarkRows,
   parseBenchmarkPairName,
   useBatchTestRunner,
 } from '../../hooks/useBatchTestRunner';
 import type { BatchPairResult } from '../../hooks/useBatchTestRunner';
-import { getTests } from '../../lib/testing/registry';
-import { downloadBenchmarkCSV, exportBenchmarkBatchResultsToCSV } from '../../lib/export/benchmarkCsvExport';
+import { getBatchTests } from '../../lib/testing/registry';
+import {
+  DEFAULT_SWEEP_SEED_INPUT,
+  MAX_SWEEP_SEEDS,
+  parseSeedList,
+} from '../../lib/testing/trajectorySettings';
+import {
+  EXPORT_SCHEMA_VERSION,
+  downloadBenchmarkCSV,
+  exportBenchmarkBatchResultsToCSV,
+} from '../../lib/export/benchmarkCsvExport';
 import { InfoTooltip } from '../UI/InfoTooltip';
 
 interface BatchTestPanelProps {
@@ -208,6 +217,17 @@ export function BatchTestPanel({
   const folder = useBatchFolder();
   const batchRunner = useBatchTestRunner();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [seededSweepEnabled, setSeededSweepEnabled] = useState(false);
+  const [seedInput, setSeedInput] = useState(DEFAULT_SWEEP_SEED_INPUT);
+
+  const parsedSeeds = useMemo(() => parseSeedList(seedInput), [seedInput]);
+  const seedError = seededSweepEnabled && !parsedSeeds.ok ? parsedSeeds.error : null;
+  // only an enabled and valid seed list reaches the runner, so a typo cannot
+  // turn into a partial sweep
+  const sweepSeeds = useMemo(
+    () => (seededSweepEnabled && parsedSeeds.ok ? parsedSeeds.seeds : null),
+    [seededSweepEnabled, parsedSeeds],
+  );
 
   const handleSelectFolder = useCallback(() => {
     fileInputRef.current?.click();
@@ -236,10 +256,11 @@ export function BatchTestPanel({
 
           if (!ctxA) return null;
 
-          return {
-            primary: ctxA,
-            reference: ctxB,
-          };
+          // primary is the asset under test, so single-viewer metrics such as
+          // inter-frame SSIM describe the format the row is labelled with
+          return ctxB
+            ? { primary: ctxB, reference: ctxA }
+            : { primary: ctxA, reference: null };
         },
         getReferenceMetrics && getTestMetrics
           ? (scene) => {
@@ -266,6 +287,7 @@ export function BatchTestPanel({
               resetTestMetrics();
             }
           : undefined,
+        sweepSeeds ? { seededSweep: { seeds: sweepSeeds } } : undefined,
       );
     } finally {
       onBatchRunningChange?.(false);
@@ -280,6 +302,7 @@ export function BatchTestPanel({
     resetReferenceMetrics,
     resetTestMetrics,
     onBatchRunningChange,
+    sweepSeeds,
   ]);
 
   const handleDownloadBenchmarkCSV = useCallback(() => {
@@ -289,13 +312,15 @@ export function BatchTestPanel({
 
   const isRunning = batchRunner.status === 'running';
   const isDone = batchRunner.status === 'done' || batchRunner.status === 'cancelled';
-  const canRun = folder.pairs.length > 0 && !isRunning;
+  const canRun = folder.pairs.length > 0 && !isRunning && seedError === null;
   const allPairsBenchmarkReady =
     folder.pairs.length > 0 && folder.pairs.every((pair) => parseBenchmarkPairName(pair.name) !== null);
-  const registeredTestCount = getTests().length;
-  const expectedBenchmarkRows =
-    folder.pairs.reduce((sum, pair) => sum + (createBenchmarkRunPlans(pair.name)?.length ?? 0), 0) *
-    registeredTestCount;
+  const registeredTestCount = getBatchTests().length;
+  const expectedBenchmarkRows = computeExpectedBenchmarkRows(
+    folder.pairs.map((pair) => pair.name),
+    registeredTestCount,
+    sweepSeeds?.length ?? 0,
+  );
   const progressLabel = batchRunner.totalPairs === folder.pairs.length ? 'pair' : 'step';
 
   return (
@@ -315,7 +340,7 @@ export function BatchTestPanel({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".ply,.splat,.ksplat,.spz"
+          accept=".ply,.splat,.ksplat,.spz,.sog"
           className="hidden"
           onChange={handleInputChange}
         />
@@ -409,7 +434,7 @@ export function BatchTestPanel({
         paired <span style={{ color: '#FFACBF' }}>test</span> splat is compared against it.
         Canonical benchmark pairs named as <span className="font-mono">scene-format</span> are
         expanded automatically into 5 viewpoints, 3 replicates, and all registered tests.{' '}
-        <InfoTooltip text="Place ref_<name> and test_<name> file pairs in a folder. Standard pairs run once. Canonical benchmark pairs such as ref_bonsai-splat.ply and test_bonsai-splat.splat automatically run the full benchmark matrix and can be exported directly to the 41-column benchmark CSV." />
+        <InfoTooltip text={`Place ref_<name> and test_<name> file pairs in a folder. Standard pairs run once. Canonical benchmark pairs such as ref_bonsai-splat.ply and test_bonsai-splat.splat automatically run the full benchmark matrix and can be exported directly to the benchmark CSV (schema ${EXPORT_SCHEMA_VERSION}).`} />
       </p>
 
       <div
@@ -465,7 +490,11 @@ export function BatchTestPanel({
             Benchmark matrix batch detected
           </div>
           <div style={{ color: '#888' }}>
-            This folder will produce {expectedBenchmarkRows} CSV rows if all {registeredTestCount} tests complete for every viewpoint and replicate.
+            This folder will produce {expectedBenchmarkRows} CSV rows if all {registeredTestCount} tests complete for every viewpoint and replicate
+            {sweepSeeds
+              ? `, including ${sweepSeeds.length * folder.pairs.length} seeded sweep row${sweepSeeds.length * folder.pairs.length === 1 ? '' : 's'}`
+              : ''}
+            .
           </div>
         </div>
       )}
@@ -551,6 +580,83 @@ export function BatchTestPanel({
           <div className="mt-1" style={{ color: '#888' }}>
             {folder.unmatchedFiles.join(', ')}
           </div>
+        </div>
+      )}
+
+      {folder.pairs.length > 0 && (
+        <div
+          className="mb-3 p-3 rounded-lg"
+          style={{ backgroundColor: 'rgba(62, 62, 62, 0.5)', border: '1px solid #44444480' }}
+        >
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              aria-label="Seeded trajectory sweep"
+              data-testid="seeded-sweep-toggle"
+              checked={seededSweepEnabled}
+              disabled={isRunning}
+              onChange={(e) => setSeededSweepEnabled(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block text-xs font-semibold" style={{ color: '#FDFDFB' }}>
+                Seeded trajectory sweep
+              </span>
+              <span className="block text-xs mt-0.5" style={{ color: '#888' }}>
+                Additionally run the seeded trajectory test once per seed on every
+                pair, at the front viewpoint and replicate 1. Off by default and
+                excluded from the benchmark matrix.
+              </span>
+            </span>
+          </label>
+
+          {seededSweepEnabled && (
+            <div className="mt-2 pl-6">
+              <label
+                htmlFor="seeded-sweep-seeds"
+                className="block text-xs mb-1"
+                style={{ color: '#888' }}
+              >
+                Seeds (comma-separated, 1-{MAX_SWEEP_SEEDS})
+              </label>
+              <input
+                id="seeded-sweep-seeds"
+                type="text"
+                inputMode="numeric"
+                aria-label="Seeded sweep seeds"
+                data-testid="seeded-sweep-seeds"
+                value={seedInput}
+                disabled={isRunning}
+                onChange={(e) => setSeedInput(e.target.value)}
+                placeholder={DEFAULT_SWEEP_SEED_INPUT}
+                className="w-full px-2 py-1 text-xs font-mono rounded"
+                style={{
+                  backgroundColor: '#2A2A2A',
+                  color: '#FDFDFB',
+                  border: `1px solid ${seedError ? '#FF575F' : '#44444480'}`,
+                }}
+              />
+              {seedError ? (
+                <div
+                  className="mt-2 p-2 rounded-lg text-xs"
+                  style={{
+                    backgroundColor: 'rgba(255, 87, 95, 0.15)',
+                    border: '1px solid #FF575F',
+                    color: '#FF575F',
+                  }}
+                >
+                  {seedError}
+                </div>
+              ) : (
+                <div className="mt-1 text-xs" style={{ color: '#666' }}>
+                  Adds {(sweepSeeds?.length ?? 0) * folder.pairs.length} row
+                  {(sweepSeeds?.length ?? 0) * folder.pairs.length === 1 ? '' : 's'}:{' '}
+                  {sweepSeeds?.length} seed{sweepSeeds?.length === 1 ? '' : 's'} x{' '}
+                  {folder.pairs.length} pair{folder.pairs.length === 1 ? '' : 's'}.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

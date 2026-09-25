@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { GSFile, SparkViewerContext } from '../../types';
+import type { GSFile, LoadPhaseTimings, SparkViewerContext } from '../../types';
 import { FileDropzone } from '../FileLoader/FileDropzone';
 import { GSViewer } from '../Viewer/GSViewer';
 import { CameraDistance } from '../Viewer/CameraDistance';
@@ -9,6 +9,7 @@ import { useMetrics } from '../../hooks/useMetrics';
 import { useImageQuality } from '../../hooks/useImageQuality';
 import { useCameraSync } from '../../hooks/useCameraSync';
 import { getScenePresets, resetControlsMomentum } from '../../lib/camera/cameraPresets';
+import { RECOGNIZED_SCENE_TOKENS } from '../../lib/scenes/sceneCatalog';
 import { captureComparisonScreenshot, generateComparisonFilename, downloadScreenshot } from '../../lib/export/screenshot';
 import { createExportRecord, exportAndDownload } from '../../lib/export/csvExport';
 import { TestPanel } from '../Testing/TestPanel';
@@ -20,7 +21,8 @@ interface ComparisonSliderState {
 }
 
 function detectSceneName(filename: string): string | null {
-  const knownScenes = ['bonsai', 'garden', 'playroom', 'truck', 'train', 'flower'];
+  // ordered so a substring match such as `room` cannot claim `playroom`
+  const knownScenes = RECOGNIZED_SCENE_TOKENS;
   const lowerFilename = filename.toLowerCase();
 
   for (const scene of knownScenes) {
@@ -31,7 +33,7 @@ function detectSceneName(filename: string): string | null {
 
   // fall back to the base name with common suffixes removed
   const baseName = filename
-    .replace(/\.(ply|splat|ksplat|spz)$/i, '')
+    .replace(/\.(ply|splat|ksplat|spz|sog)$/i, '')
     .replace(/-splatfacto$/i, '')
     .replace(/_converted$/i, '');
 
@@ -224,7 +226,7 @@ export function AppLayout() {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [fileA, fileB, contextA, contextB, isBatchTesting, imageQuality.isComparing, imageQuality.metrics.psnr]);
+  }, [fileA, fileB, contextA, contextB, isBatchTesting, imageQuality.isComparing, imageQuality.metrics.psnr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // resolve batch-load promises when viewer contexts become ready
   const contextResolverA = useRef<((ctx: SparkViewerContext) => void) | null>(null);
@@ -287,16 +289,26 @@ export function AppLayout() {
     [metricsB, imageQuality],
   );
 
-  const handleLoadCompleteA = (loadTime: number, splatCount: number) => {
-    console.log('handleLoadCompleteA:', { loadTime, splatCount, fileSize: fileA?.size });
+  const handleLoadCompleteA = (loadTime: number, splatCount: number, phases: LoadPhaseTimings) => {
+    console.log('handleLoadCompleteA:', { loadTime, splatCount, fileSize: fileA?.size, phases });
     metricsA.setLoadTime(loadTime);
+    metricsA.setLoadPhases(phases.fileReadMs, phases.meshInitMs);
     metricsA.setFileInfo(fileA?.size || 0, splatCount);
   };
 
-  const handleLoadCompleteB = (loadTime: number, splatCount: number) => {
-    console.log('handleLoadCompleteB:', { loadTime, splatCount, fileSize: fileB?.size });
+  const handleLoadCompleteB = (loadTime: number, splatCount: number, phases: LoadPhaseTimings) => {
+    console.log('handleLoadCompleteB:', { loadTime, splatCount, fileSize: fileB?.size, phases });
     metricsB.setLoadTime(loadTime);
+    metricsB.setLoadPhases(phases.fileReadMs, phases.meshInitMs);
     metricsB.setFileInfo(fileB?.size || 0, splatCount);
+  };
+
+  const handleFirstFrameA = (firstFrameMs: number) => {
+    metricsA.setFirstFrameTime(firstFrameMs);
+  };
+
+  const handleFirstFrameB = (firstFrameMs: number) => {
+    metricsB.setFirstFrameTime(firstFrameMs);
   };
 
   const handleFrameUpdateA = (deltaTime: number) => {
@@ -375,7 +387,7 @@ export function AppLayout() {
       clearTimeout(timeoutId);
       window.removeEventListener('resize', updateResolution);
     };
-  }, [fileA, fileB]);
+  }, [fileA, fileB]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex flex-col bg-gray-900" style={{ height: '100dvh' }}>
@@ -383,7 +395,7 @@ export function AppLayout() {
       <input
         id="file-input-A"
         type="file"
-        accept=".ply,.splat,.ksplat,.spz"
+        accept=".ply,.splat,.ksplat,.spz,.sog"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
@@ -404,7 +416,7 @@ export function AppLayout() {
       <input
         id="file-input-B"
         type="file"
-        accept=".ply,.splat,.ksplat,.spz"
+        accept=".ply,.splat,.ksplat,.spz,.sog"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
@@ -506,6 +518,7 @@ export function AppLayout() {
                 onLoadComplete={handleLoadCompleteA}
                 onFrameUpdate={handleFrameUpdateA}
                 onViewerReady={handleContextReadyA}
+                onFirstFrame={handleFirstFrameA}
               />
             )}
           </div>
@@ -561,6 +574,7 @@ export function AppLayout() {
                 onLoadComplete={handleLoadCompleteB}
                 onFrameUpdate={handleFrameUpdateB}
                 onViewerReady={handleContextReadyB}
+                onFirstFrame={handleFirstFrameB}
               />
             )}
           </div>

@@ -25,6 +25,19 @@ export function getTests(): Test[] {
   });
 }
 
+/**
+ * Tests kept out of the batch matrix. The seeded trajectory depends on a seed
+ * the panel can change between runs, so batch output would stop being
+ * comparable across pairs; batch mode reaches it only through the opt-in
+ * seeded sweep.
+ */
+export const SINGLE_SCENE_ONLY_TEST_IDS: readonly string[] = ['trajectory-seeded'];
+
+/** The tests a batch runs for every viewpoint and replicate. */
+export function getBatchTests(): Test[] {
+  return getTests().filter((t) => !SINGLE_SCENE_ONLY_TEST_IDS.includes(t.id));
+}
+
 export function getTestsByCategory(category: string): Test[] {
   return getTests().filter((t) => t.category === category);
 }

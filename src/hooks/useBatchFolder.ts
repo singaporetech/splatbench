@@ -33,7 +33,7 @@ export interface UseBatchFolderReturn {
 
 // ─── Supported extensions ────────────────────────────────────────────────────
 
-const SUPPORTED_EXTENSIONS = new Set(['.ply', '.splat', '.ksplat', '.spz']);
+const SUPPORTED_EXTENSIONS = new Set(['.ply', '.splat', '.ksplat', '.spz', '.sog']);
 
 function getExtension(filename: string): string {
   const lastDot = filename.lastIndexOf('.');

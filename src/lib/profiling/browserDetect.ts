@@ -49,7 +49,7 @@ export class BrowserProfiler {
     
     const webgpuSupported = 'gpu' in navigator;
     
-    const deviceMemory = (navigator as any).deviceMemory;
+    const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
     
     return {
       browser,

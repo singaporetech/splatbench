@@ -1,15 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BenchmarkMetrics, SparkViewerContext } from '../../types';
 import type { GSFile } from '../../types';
-import type { TestScene, TestStatus } from '../../lib/testing/types';
+import type { Test, TestScene, TestStatus } from '../../lib/testing/types';
 import { useTestRunner } from '../../hooks/useTestRunner';
 import type { TestRunState } from '../../hooks/useTestRunner';
 import { BatchTestPanel } from './BatchTestPanel';
 import { InfoTooltip } from '../UI/InfoTooltip';
+import {
+  CUSTOM_MAX_FRAMES,
+  CUSTOM_MIN_FRAMES,
+  TrajectoryRecorder,
+  parseCustomTrajectoryJSON,
+  serializeCustomTrajectory,
+} from '../../lib/camera/trajectories';
+import { makeCustomTrajectoryTest } from '../../lib/testing/trajectoryTests';
+import { getSeed, setSeed } from '../../lib/testing/trajectorySettings';
+import { downloadJSON } from '../../lib/export/downloadJSON';
 
 // register built-in tests through module side effects
 import '../../lib/testing/trajectoryTests';
 import '../../lib/testing/staticQualityTest';
+
+const SEEDED_TEST_ID = 'trajectory-seeded';
 
 interface TestPanelProps {
   contextA: SparkViewerContext | null;
@@ -334,6 +346,9 @@ function ResultsSummary({
 
 // ─── Current Models Sub-Panel ────────────────────────────────────────────────
 
+// file name and test name for a recorded path
+const RECORDED_PATH_NAME = 'recorded-path';
+
 function CurrentModelsPanel({
   contextA,
   contextB,
@@ -341,10 +356,122 @@ function CurrentModelsPanel({
   contextA: SparkViewerContext | null;
   contextB: SparkViewerContext | null;
 }) {
-  const runner = useTestRunner();
+  const [customTest, setCustomTest] = useState<Test | null>(null);
+  const [customError, setCustomError] = useState<string | null>(null);
+  const [seedInput, setSeedInput] = useState(() => String(getSeed()));
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedFrames, setRecordedFrames] = useState(0);
+  const [recordNote, setRecordNote] = useState<string | null>(null);
+  const customFileInputRef = useRef<HTMLInputElement>(null);
+  const recorderRef = useRef<TrajectoryRecorder | null>(null);
+  const recordFrameRef = useRef<number | null>(null);
+  // the loop reads the reference viewer through a ref, so a viewer swapped out
+  // mid-recording never leaves it sampling a stale context
+  const contextARef = useRef<SparkViewerContext | null>(contextA);
 
+  const extraTests = useMemo(() => (customTest ? [customTest] : []), [customTest]);
+  const runner = useTestRunner(extraTests);
+
+  useEffect(() => {
+    contextARef.current = contextA;
+  }, [contextA]);
+
+  useEffect(
+    () => () => {
+      if (recordFrameRef.current !== null) cancelAnimationFrame(recordFrameRef.current);
+    },
+    [],
+  );
+
+  const handleSeedChange = (value: string) => {
+    setSeedInput(value);
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) setSeed(parsed);
+  };
+
+  const handleCustomPathFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const config = parseCustomTrajectoryJSON(await file.text());
+      const test = makeCustomTrajectoryTest(config);
+      setCustomTest(test);
+      runner.selectTest(test.id);
+      setCustomError(null);
+    } catch (err) {
+      setCustomTest(null);
+      setCustomError(err instanceof Error ? err.message : 'Could not read path file');
+    }
+    // allow re-picking the same file after a fix
+    if (customFileInputRef.current) customFileInputRef.current.value = '';
+  };
+
+  const handleStartRecording = () => {
+    if (!contextA || isRecording) return;
+
+    const recorder = new TrajectoryRecorder();
+    recorderRef.current = recorder;
+    setRecordedFrames(0);
+    setRecordNote(null);
+    setCustomError(null);
+    setIsRecording(true);
+
+    const step = () => {
+      const context = contextARef.current;
+      // skip frames while no viewer is loaded instead of ending the recording
+      if (context) {
+        recorder.sample(context.camera.position, context.controls.target);
+        setRecordedFrames(recorder.frameCount);
+      }
+      recordFrameRef.current = requestAnimationFrame(step);
+    };
+    recordFrameRef.current = requestAnimationFrame(step);
+  };
+
+  const handleStopRecording = () => {
+    if (recordFrameRef.current !== null) {
+      cancelAnimationFrame(recordFrameRef.current);
+      recordFrameRef.current = null;
+    }
+    setIsRecording(false);
+
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    if (!recorder) return;
+
+    const points = recorder.points;
+    if (points.length < CUSTOM_MIN_FRAMES) {
+      setRecordNote(null);
+      setCustomError(`Recorded path needs at least ${CUSTOM_MIN_FRAMES} frames`);
+      return;
+    }
+
+    // load the saved text back through the parser, so the test that runs is
+    // exactly the file that was saved
+    const text = serializeCustomTrajectory(RECORDED_PATH_NAME, points);
+    try {
+      const config = parseCustomTrajectoryJSON(text);
+      const test = makeCustomTrajectoryTest(config);
+      setCustomTest(test);
+      runner.selectTest(test.id);
+      setCustomError(null);
+      setRecordNote(
+        recorder.full
+          ? `Saved ${points.length} frames to ${RECORDED_PATH_NAME}.json, stopped at the ${CUSTOM_MAX_FRAMES}-frame cap`
+          : `Saved ${points.length} frames to ${RECORDED_PATH_NAME}.json`,
+      );
+      downloadJSON(`${RECORDED_PATH_NAME}.json`, text);
+    } catch (err) {
+      setRecordNote(null);
+      setCustomError(err instanceof Error ? err.message : 'Could not build the recorded path');
+    }
+  };
+
+  // primary is the asset under test (Splat B) and reference the ground truth
+  // (Splat A); with one viewer loaded, that viewer is the primary
   const scene: TestScene | null = contextA
-    ? { primary: contextA, reference: contextB ?? null }
+    ? contextB
+      ? { primary: contextB, reference: contextA }
+      : { primary: contextA, reference: null }
     : null;
 
   const canRun = !!scene && !runner.isRunning && runner.selectedIds.size > 0;
@@ -510,6 +637,120 @@ function CurrentModelsPanel({
             </label>
           );
         })}
+      </div>
+
+      {/* trajectory options */}
+      <div
+        className="mb-5 px-3 py-2.5 rounded-lg"
+        style={{ backgroundColor: 'rgba(179, 157, 255, 0.06)', border: '1px solid #44444480' }}
+      >
+        <div
+          className="text-xs font-semibold uppercase tracking-wide mb-2"
+          style={{ color: '#FFACBF' }}
+        >
+          Trajectory options
+        </div>
+
+        {runner.selectedIds.has(SEEDED_TEST_ID) && (
+          <label className="flex items-center gap-2 mb-2">
+            <span className="text-xs" style={{ color: '#888' }}>
+              Seed
+            </span>
+            <input
+              type="number"
+              value={seedInput}
+              onChange={(e) => handleSeedChange(e.target.value)}
+              disabled={runner.isRunning}
+              className="text-xs font-mono px-2 py-1 rounded w-24"
+              style={{
+                backgroundColor: '#555',
+                color: '#FDFDFB',
+                border: '1px solid #44444480',
+                opacity: runner.isRunning ? 0.5 : 1,
+              }}
+            />
+            <InfoTooltip text="Same seed and same app version always produce the same camera path, so a seeded run can be reproduced exactly." />
+          </label>
+        )}
+
+        <input
+          ref={customFileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={(e) => handleCustomPathFile(e.target.files?.[0])}
+        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => customFileInputRef.current?.click()}
+            disabled={runner.isRunning}
+            className="text-xs px-2 py-1 rounded transition-colors"
+            style={{
+              backgroundColor: '#555',
+              color: '#FDFDFB',
+              cursor: runner.isRunning ? 'not-allowed' : 'pointer',
+              opacity: runner.isRunning ? 0.5 : 1,
+            }}
+          >
+            Custom path (JSON)&hellip;
+          </button>
+          <button
+            onClick={isRecording ? handleStopRecording : handleStartRecording}
+            // stopping stays available during a run, so a recording can always
+            // be closed
+            disabled={!isRecording && (!contextA || runner.isRunning)}
+            className="text-xs px-2 py-1 rounded transition-colors"
+            style={{
+              backgroundColor: isRecording ? '#FF575F' : '#555',
+              color: '#FDFDFB',
+              cursor: !isRecording && (!contextA || runner.isRunning) ? 'not-allowed' : 'pointer',
+              opacity: !isRecording && (!contextA || runner.isRunning) ? 0.5 : 1,
+            }}
+          >
+            {isRecording
+              ? `Stop recording (${recordedFrames} frame${recordedFrames === 1 ? '' : 's'})`
+              : 'Record path'}
+          </button>
+          {customTest && (
+            <button
+              onClick={() => {
+                setCustomTest(null);
+                setCustomError(null);
+                setRecordNote(null);
+              }}
+              disabled={runner.isRunning}
+              className="text-xs px-2 py-1 rounded transition-colors"
+              style={{
+                backgroundColor: '#555',
+                color: '#FDFDFB',
+                cursor: runner.isRunning ? 'not-allowed' : 'pointer',
+                opacity: runner.isRunning ? 0.5 : 1,
+              }}
+            >
+              Remove
+            </button>
+          )}
+          <InfoTooltip text={`A JSON file shaped { "name": "my-path", "frames": [ { "position": [x,y,z], "target": [x,y,z] } ] }. Record path samples the reference camera at roughly 15 Hz into that same format, capped at ${CUSTOM_MAX_FRAMES} frames, then saves the file and loads it as the custom path. Either way it runs alongside the tests above and is never part of a batch run.`} />
+        </div>
+
+        {recordNote && (
+          <div className="text-xs mt-2" style={{ color: '#888' }}>
+            {recordNote}
+          </div>
+        )}
+
+        {customError && (
+          <div
+            className="mt-2 p-2 rounded-lg text-xs"
+            style={{
+              backgroundColor: 'rgba(255, 87, 95, 0.15)',
+              border: '1px solid #FF575F',
+              color: '#FF575F',
+            }}
+          >
+            {customError}
+          </div>
+        )}
       </div>
 
       {/* run and cancel buttons */}

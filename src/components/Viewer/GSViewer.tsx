@@ -2,22 +2,42 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useGSLoader } from '../../hooks/useGSLoader';
-import type { GSFile, SparkViewerContext } from '../../types';
+import type { GSFile, LoadPhaseTimings, SparkViewerContext } from '../../types';
 
 interface GSViewerProps {
   gsFile: GSFile | null;
-  onLoadComplete?: (loadTime: number, splatCount: number) => void;
+  onLoadComplete?: (loadTime: number, splatCount: number, phases: LoadPhaseTimings) => void;
   onFrameUpdate?: (deltaTime: number) => void;
   onViewerReady?: (context: SparkViewerContext) => void;
+  /** Fired once per load, after the first render with the mesh in the scene, in ms from load start. */
+  onFirstFrame?: (firstFrameMs: number) => void;
 }
 
-export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady }: GSViewerProps) {
+export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady, onFirstFrame }: GSViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contextRef = useRef<SparkViewerContext | null>(null);
   const frameIdRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
+  const onFrameUpdateRef = useRef(onFrameUpdate);
+  const onViewerReadyRef = useRef(onViewerReady);
+  const onFirstFrameRef = useRef(onFirstFrame);
+  // load start timestamp of the current load; null when nothing is pending
+  const loadStartRef = useRef<number | null>(null);
+  const firstFrameReportedRef = useRef(true);
 
   const { splatMesh, loading, error, loadProgress, loadFile, cleanup } = useGSLoader();
+
+  useEffect(() => {
+    onFrameUpdateRef.current = onFrameUpdate;
+  }, [onFrameUpdate]);
+
+  useEffect(() => {
+    onViewerReadyRef.current = onViewerReady;
+  }, [onViewerReady]);
+
+  useEffect(() => {
+    onFirstFrameRef.current = onFirstFrame;
+  }, [onFirstFrame]);
 
   useEffect(() => {
     if (!gsFile || !containerRef.current) return;
@@ -68,9 +88,12 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
 
     contextRef.current = context;
 
-    loadFile(gsFile, (loadTime, splatCount) => {
+    loadFile(gsFile, (loadTime, splatCount, phases) => {
+      // arm the first-frame timer before the mesh reaches the render loop
+      loadStartRef.current = phases.loadStart;
+      firstFrameReportedRef.current = false;
       if (onLoadComplete) {
-        onLoadComplete(loadTime, splatCount);
+        onLoadComplete(loadTime, splatCount, phases);
       }
     });
 
@@ -115,16 +138,14 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
 
     console.log('SplatMesh added to scene');
 
-    if (onViewerReady) {
-      onViewerReady(context);
-    }
+    onViewerReadyRef.current?.(context);
 
     return () => {
       if (context.scene && splatMesh) {
         context.scene.remove(splatMesh);
       }
     };
-  }, [splatMesh, onViewerReady]);
+  }, [splatMesh]);
 
   useEffect(() => {
     if (!contextRef.current || !splatMesh) return;
@@ -140,9 +161,12 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
 
       context.renderer.render(context.scene, context.camera);
 
-      if (onFrameUpdate) {
-        onFrameUpdate(frameInterval);
+      if (!firstFrameReportedRef.current && loadStartRef.current !== null) {
+        firstFrameReportedRef.current = true;
+        onFirstFrameRef.current?.(performance.now() - loadStartRef.current);
       }
+
+      onFrameUpdateRef.current?.(frameInterval);
 
       lastFrameTimeRef.current = currentTime;
       frameIdRef.current = requestAnimationFrame(animate);
@@ -156,7 +180,7 @@ export function GSViewer({ gsFile, onLoadComplete, onFrameUpdate, onViewerReady 
         frameIdRef.current = null;
       }
     };
-  }, [splatMesh, onFrameUpdate]);
+  }, [splatMesh]);
 
   return (
     <div

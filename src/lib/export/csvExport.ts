@@ -273,7 +273,7 @@ export function createCSVExporter() {
       records.push(record);
     },
     
-    export(_filename?: string): string {
+    export(): string {
       return exportToCSV(records);
     },
     
