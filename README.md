@@ -67,6 +67,21 @@ Point the Batch Test Panel at a folder of paired files (`ref_<name>.<ext>` / `te
 
 Any lowercase scene name works. Six scenes have a pinned camera radius (bonsai, flower or flowers, garden, playroom, train, truck), so their camera distances never change. For any other scene the radius is measured once per pair from the reference asset, before the first viewpoint is applied, so a lossy test format cannot move the camera and every format of a scene is judged from the same poses. An opt-in [seeded sweep](#seeded-sweep-in-batch-mode) adds seeded trajectory runs on top of the matrix.
 
+### Headless Mode
+
+`scripts/collect-headless.mjs` drives the same app through Playwright's Chromium to run a batch without anyone at the keyboard. It loads a folder of `ref_`/`test_` pairs into the Batch panel, runs the benchmark matrix, and saves the benchmark CSV.
+
+```bash
+npx playwright install chromium   # once, to fetch the browser
+npm run build
+npm run preview -- --port 5173    # keep this running in one terminal
+npm run collect:headless -- --assets path/to/pairs --out results/benchmark.csv
+```
+
+Options: `--assets <dir>` (default `.test-assets`), `--out <csv>` (default `results/splatbench_benchmark.csv`), `--url <url>` (default `http://localhost:5173`), `--sweep-seeds 42,1337,2026` to add the opt-in seeded sweep, `--timeout <ms>` for the whole batch (default one hour), and `--headless` to use Chromium's headless mode instead of a window. The driver fixes a 1280×800 viewport at a device pixel ratio of 1, which gives each viewer a 480×711 canvas, and prints the canvas sizes, row count, and schema version when it finishes.
+
+It needs GPU-backed Chromium. Chromium starts with WebGL enabled and the GPU blocklist ignored, and the driver stops before running anything if the WebGL renderer is a software rasterizer such as SwiftShader or llvmpipe. Chromium opens a window by default, since a desktop window reliably gets the GPU; `--headless` only works where Chromium's headless mode still has GPU access.
+
 ---
 
 ## Benchmark Models

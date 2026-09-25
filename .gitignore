@@ -26,3 +26,6 @@ dist-ssr
 # Testing artifacts
 .playwright-mcp/
 .test-assets/
+
+# headless collection output
+results/
